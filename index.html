@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -189,13 +188,14 @@
              <div class="upload-area" style="border-color: var(--materials-color); margin-bottom: 30px;">
                 <input type="file" id="materialsExcelFile" class="hidden" accept=".xls,.xlsx,.csv">
                 <label for="materialsExcelFile" class="btn-materials">بارگذاری/افزودن اکسل مواد اولیه</label>
-                 <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">فایل باید شامل ستون‌های 'نام مواد اولیه'، 'مقدار' و 'واحد سنجش' باشد. مقادیر به موجودی فعلی اضافه می‌شوند.</p>
+                 <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">فایل باید شامل ستون‌های 'نام مواد اولیه'، 'رنگ'، 'مقدار' و 'واحد سنجش' باشد. مقادیر به موجودی فعلی اضافه می‌شوند.</p>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
                 <div>
                     <h3>تعریف/افزودن دستی مواد اولیه</h3>
                     <div class="filters">
                         <input type="text" id="materialName" placeholder="نام ماده اولیه" style="flex-grow: 2;">
+                        <input type="text" id="materialColor" placeholder="رنگ ماده اولیه">
                         <input type="number" id="materialStock" placeholder="مقدار برای افزودن" min="0">
                          <input type="text" id="materialUnit" placeholder="واحد (متر، عدد...)" >
                         <button id="addMaterialBtn" class="btn-primary">افزودن</button>
@@ -207,6 +207,7 @@
                      <div class="filters">
                         <select id="bomGroupSelect" style="flex-grow: 1;"></select>
                         <select id="bomMaterialSelect" style="flex-grow: 1;"></select>
+                        <select id="bomMaterialColorSelect" style="flex-grow: 1;"></select>
                         <input type="number" id="bomConsumptionInput" placeholder="میزان مصرف" min="0" step="0.1">
                         <button id="addBomBtn" class="btn-materials">ثبت استاندارد</button>
                     </div>
@@ -375,7 +376,6 @@
 
 
 <script type="module">
-    // --- The entire application logic will be moved inside this event listener ---
     document.addEventListener('DOMContentLoaded', () => {
 
     const { auth, dbDocRef, setDoc, onSnapshot, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseServices;
@@ -428,12 +428,14 @@
         // Materials Elements
         materialsExcelFile: document.getElementById('materialsExcelFile'),
         materialName: document.getElementById('materialName'),
+        materialColor: document.getElementById('materialColor'),
         materialStock: document.getElementById('materialStock'),
         materialUnit: document.getElementById('materialUnit'),
         addMaterialBtn: document.getElementById('addMaterialBtn'),
         materialsTableContainer: document.getElementById('materialsTableContainer'),
         bomGroupSelect: document.getElementById('bomGroupSelect'),
         bomMaterialSelect: document.getElementById('bomMaterialSelect'),
+        bomMaterialColorSelect: document.getElementById('bomMaterialColorSelect'),
         bomConsumptionInput: document.getElementById('bomConsumptionInput'),
         addBomBtn: document.getElementById('addBomBtn'),
         bomTableContainer: document.getElementById('bomTableContainer'),
@@ -483,8 +485,8 @@
         productionLog: [],
         productionBatches: {},
         inventory: {},
-        materials: {},
-        bom: {},
+        materials: {}, // New structure: { 'MaterialName': { 'Color': { stock, unit } } }
+        bom: {}, // New structure: { 'GroupName': { 'MaterialName': { 'Color': consumption } } }
         fileCounter: 0,
         batchCounterA: 1,
         batchMonthA: '',
@@ -494,6 +496,7 @@
     };
 
     let appState = { ...defaultState };
+    let isInitialDataLoad = true; 
 
     const STATUSES = { 
         READY: 'آماده تولید', 
@@ -524,30 +527,63 @@
     
     function initializeAppWithData(data) {
         appState = { ...defaultState, ...data };
-        renderDashboard();
-        showView('dashboardView');
+        
+        if (isInitialDataLoad) {
+            renderDashboard();
+            showView('dashboardView');
+            isInitialDataLoad = false;
+        } else {
+            const visibleView = document.querySelector('.page-view:not(.hidden)');
+            if (!visibleView) {
+                renderDashboard();
+                showView('dashboardView');
+                return;
+            }
+
+            switch (visibleView.id) {
+                case 'dashboardView':
+                    renderDashboard();
+                    break;
+                case 'processingView':
+                    if (appState.activeFileId && appState.files[appState.activeFileId]) {
+                        renderProcessingView();
+                    } else {
+                        showView('dashboardView');
+                        renderDashboard();
+                    }
+                    break;
+                case 'reportView':
+                    renderReportView();
+                    break;
+                case 'trackingView':
+                    renderTrackingView();
+                    break;
+                case 'inventoryView':
+                    renderInventoryView();
+                    break;
+                case 'materialsView':
+                    renderMaterialsView();
+                    break;
+            }
+        }
     }
     
     // --- Auth Logic ---
     onAuthStateChanged(auth, user => {
         if (user) {
-            // User is signed in
+            isInitialDataLoad = true;
             elements.appContainer.style.display = 'block';
             elements.authContainer.style.display = 'none';
             elements.userEmail.textContent = user.email;
-
-            // Listen for real-time updates from Firestore
             onSnapshot(dbDocRef, (doc) => {
                 if (doc.exists()) {
                     initializeAppWithData(doc.data());
                 } else {
-                    // First time load for this project, initialize with default and save to create the doc
                     initializeAppWithData(defaultState);
                     saveState();
                 }
             });
         } else {
-            // User is signed out
             elements.appContainer.style.display = 'none';
             elements.authContainer.style.display = 'block';
         }
@@ -781,29 +817,33 @@
     // --- Materials View Logic ---
     const renderMaterialsView = () => {
         // Render Materials Table
-        const materials = Object.keys(appState.materials);
-        let materialsTable = '<table><thead><tr><th>ماده اولیه</th><th>موجودی</th><th>واحد</th><th>حذف</th></tr></thead><tbody>';
-        if(materials.length > 0) {
-            materials.forEach(name => {
-                const material = appState.materials[name];
-                materialsTable += `<tr><td>${name}</td><td>${material.stock}</td><td>${material.unit}</td><td><button class="btn-danger btn-sm" data-delete-material="${name}">X</button></td></tr>`;
+        const materialNames = Object.keys(appState.materials);
+        let materialsTable = '<table><thead><tr><th>ماده اولیه</th><th>رنگ</th><th>موجودی</th><th>واحد</th><th>حذف</th></tr></thead><tbody>';
+        if(materialNames.length > 0) {
+            materialNames.forEach(name => {
+                Object.keys(appState.materials[name]).forEach(color => {
+                    const material = appState.materials[name][color];
+                    materialsTable += `<tr><td>${name}</td><td>${color}</td><td>${material.stock}</td><td>${material.unit}</td><td><button class="btn-danger btn-sm" data-delete-material-name="${name}" data-delete-material-color="${color}">X</button></td></tr>`;
+                });
             });
         } else {
-            materialsTable += '<tr><td colspan="4">هیچ ماده اولیه‌ای تعریف نشده است.</td></tr>';
+            materialsTable += '<tr><td colspan="5">هیچ ماده اولیه‌ای تعریف نشده است.</td></tr>';
         }
         elements.materialsTableContainer.innerHTML = materialsTable + '</tbody></table>';
 
         // Render BOM Table
-        let bomTable = '<table><thead><tr><th>گروه محصول</th><th>ماده اولیه</th><th>میزان مصرف</th><th>حذف</th></tr></thead><tbody>';
+        let bomTable = '<table><thead><tr><th>گروه محصول</th><th>ماده اولیه</th><th>رنگ</th><th>میزان مصرف</th><th>حذف</th></tr></thead><tbody>';
         const bomGroups = Object.keys(appState.bom);
-         if(bomGroups.length > 0) {
+        if(bomGroups.length > 0) {
             bomGroups.forEach(group => {
-                Object.keys(appState.bom[group]).forEach(material => {
-                     bomTable += `<tr><td>${group}</td><td>${material}</td><td>${appState.bom[group][material]}</td><td><button class="btn-danger btn-sm" data-delete-bom-group="${group}" data-delete-bom-material="${material}">X</button></td></tr>`;
+                Object.keys(appState.bom[group]).forEach(materialName => {
+                    Object.keys(appState.bom[group][materialName]).forEach(color => {
+                        bomTable += `<tr><td>${group}</td><td>${materialName}</td><td>${color}</td><td>${appState.bom[group][materialName][color]}</td><td><button class="btn-danger btn-sm" data-delete-bom-group="${group}" data-delete-bom-material="${materialName}" data-delete-bom-color="${color}">X</button></td></tr>`;
+                    });
                 });
             });
         } else {
-            bomTable += '<tr><td colspan="4">هیچ استاندارد مصرفی تعریف نشده است.</td></tr>';
+            bomTable += '<tr><td colspan="5">هیچ استاندارد مصرفی تعریف نشده است.</td></tr>';
         }
         elements.bomTableContainer.innerHTML = bomTable + '</tbody></table>';
         
@@ -812,43 +852,62 @@
         const allGroups = new Set(predefinedGroups);
         Object.values(appState.files).forEach(file => file.tasks.forEach(task => allGroups.add(task.productGroup)));
         elements.bomGroupSelect.innerHTML = '<option value="">-- گروه محصول --</option>' + [...allGroups].sort().map(g => `<option>${g}</option>`).join('');
-        elements.bomMaterialSelect.innerHTML = '<option value="">-- ماده اولیه --</option>' + materials.sort().map(m => `<option>${m}</option>`).join('');
+        elements.bomMaterialSelect.innerHTML = '<option value="">-- ماده اولیه --</option>' + materialNames.sort().map(m => `<option>${m}</option>`).join('');
+        elements.bomMaterialColorSelect.innerHTML = '<option value="">-- رنگ ماده --</option>'; // Populated on material change
     };
+
+    elements.bomMaterialSelect.addEventListener('change', (e) => {
+        const materialName = e.target.value;
+        const colors = materialName && appState.materials[materialName] ? Object.keys(appState.materials[materialName]) : [];
+        elements.bomMaterialColorSelect.innerHTML = '<option value="">-- رنگ ماده --</option>' + colors.sort().map(c => `<option>${c}</option>`).join('');
+    });
     
     elements.addMaterialBtn.addEventListener('click', () => {
         const name = elements.materialName.value.trim();
+        const color = elements.materialColor.value.trim();
         const stock = parseInt(elements.materialStock.value, 10);
         const unit = elements.materialUnit.value.trim();
-        if(!name || isNaN(stock) || stock < 0 || !unit) {
-            showToast('نام، موجودی و واحد معتبر وارد کنید.', 'error');
+        if(!name || !color || isNaN(stock) || stock < 0 || !unit) {
+            showToast('نام، رنگ، موجودی و واحد معتبر وارد کنید.', 'error');
             return;
         }
-        if (appState.materials[name]) {
-            appState.materials[name].stock += stock;
+        if (!appState.materials[name]) {
+            appState.materials[name] = {};
+        }
+        if (appState.materials[name][color]) {
+            appState.materials[name][color].stock += stock;
         } else {
-            appState.materials[name] = { stock, unit };
+            appState.materials[name][color] = { stock, unit };
         }
         saveState();
         elements.materialName.value = '';
+        elements.materialColor.value = '';
         elements.materialStock.value = '';
         elements.materialUnit.value = '';
     });
     
     elements.materialsTableContainer.addEventListener('click', e => {
-        const materialName = e.target.dataset.deleteMaterial;
-        if(materialName){
+        const materialName = e.target.dataset.deleteMaterialName;
+        const materialColor = e.target.dataset.deleteMaterialColor;
+        if(materialName && materialColor){
             showConfirmationModal(
                 'تایید حذف ماده اولیه', 
-                `آیا از حذف ماده اولیه '${materialName}' و تمام استانداردهای مصرف آن اطمینان دارید؟`,
+                `آیا از حذف ماده اولیه '${materialName} - ${materialColor}' و تمام استانداردهای مصرف آن اطمینان دارید؟`,
                 () => {
-                    delete appState.materials[materialName];
+                    delete appState.materials[materialName][materialColor];
+                    if(Object.keys(appState.materials[materialName]).length === 0) {
+                        delete appState.materials[materialName];
+                    }
                     Object.keys(appState.bom).forEach(group => {
-                        if(appState.bom[group][materialName]){
-                            delete appState.bom[group][materialName];
+                        if(appState.bom[group][materialName] && appState.bom[group][materialName][materialColor]){
+                            delete appState.bom[group][materialName][materialColor];
+                             if(Object.keys(appState.bom[group][materialName]).length === 0) {
+                                delete appState.bom[group][materialName];
+                            }
                         }
                     });
                     saveState();
-                    showToast(`ماده اولیه '${materialName}' حذف شد.`);
+                    showToast(`ماده اولیه '${materialName} - ${materialColor}' حذف شد.`);
                 }
             );
         }
@@ -856,16 +915,20 @@
 
     elements.addBomBtn.addEventListener('click', () => {
         const group = elements.bomGroupSelect.value;
-        const material = elements.bomMaterialSelect.value;
+        const materialName = elements.bomMaterialSelect.value;
+        const materialColor = elements.bomMaterialColorSelect.value;
         const consumption = parseFloat(elements.bomConsumptionInput.value);
-        if(!group || !material || isNaN(consumption) || consumption <= 0){
+        if(!group || !materialName || !materialColor || isNaN(consumption) || consumption <= 0){
             showToast('لطفا تمام فیلدهای استاندارد مصرف را به درستی پر کنید.', 'error');
             return;
         }
         if(!appState.bom[group]){
             appState.bom[group] = {};
         }
-        appState.bom[group][material] = consumption;
+        if(!appState.bom[group][materialName]){
+            appState.bom[group][materialName] = {};
+        }
+        appState.bom[group][materialName][materialColor] = consumption;
         saveState();
         elements.bomConsumptionInput.value = '';
     });
@@ -873,12 +936,16 @@
     elements.bomTableContainer.addEventListener('click', e => {
         const group = e.target.dataset.deleteBomGroup;
         const material = e.target.dataset.deleteBomMaterial;
-        if(group && material){
+        const color = e.target.dataset.deleteBomColor;
+        if(group && material && color){
             showConfirmationModal(
                 'تایید حذف استاندارد',
                 `آیا از حذف این استاندارد مصرف اطمینان دارید؟`,
                  () => {
-                    delete appState.bom[group][material];
+                    delete appState.bom[group][material][color];
+                    if(Object.keys(appState.bom[group][material]).length === 0){
+                        delete appState.bom[group][material];
+                    }
                     if(Object.keys(appState.bom[group]).length === 0){
                         delete appState.bom[group];
                     }
@@ -901,14 +968,19 @@
                 let updatedCount = 0;
                 jsonData.forEach(row => {
                     const name = row['نام مواد اولیه'];
+                    const color = row['رنگ'] || 'نامشخص';
                     const stock = parseFloat(row['مقدار']);
                     const unit = row['واحد سنجش'];
                     if (name && !isNaN(stock) && unit) {
                         const materialName = name.trim();
-                        if (appState.materials[materialName]) {
-                            appState.materials[materialName].stock += stock;
+                        const materialColor = color.trim();
+                        if (!appState.materials[materialName]) {
+                            appState.materials[materialName] = {};
+                        }
+                        if (appState.materials[materialName][materialColor]) {
+                            appState.materials[materialName][materialColor].stock += stock;
                         } else {
-                            appState.materials[materialName] = { stock, unit: unit.trim() };
+                            appState.materials[materialName][materialColor] = { stock, unit: unit.trim() };
                         }
                         updatedCount++;
                     }
@@ -917,7 +989,7 @@
                     saveState();
                     showToast(`${updatedCount} ماده اولیه با موفقیت اضافه/به‌روزرسانی شد.`);
                 } else {
-                     showToast('هیچ ردیف معتبری در فایل اکسل یافت نشد. ستون‌ها باید "نام مواد اولیه"، "مقدار" و "واحد سنجش" باشند.', 'error');
+                     showToast('هیچ ردیف معتبری در فایل اکسل یافت نشد. ستون‌ها باید "نام مواد اولیه"، "رنگ"، "مقدار" و "واحد سنجش" باشند.', 'error');
                 }
             } catch (err) {
                 showToast(`خطا در پردازش فایل: ${err.message}`, 'error');
@@ -1090,59 +1162,45 @@
         });
         
         let warningHTML = '<h4>آنالیز موجودی محصول آماده:</h4>';
-        let hasProductInventoryInfo = false;
         Object.keys(requiredByGroup).forEach(group => {
             const required = requiredByGroup[group];
             const available = appState.inventory[group] || 0;
             warningHTML += `<p>گروه '${group}': نیاز به تولید <strong>${required}</strong> عدد / موجودی آماده: <strong>${available}</strong> عدد</p>`;
-            hasProductInventoryInfo = true;
         });
-         if (!hasProductInventoryInfo && Object.keys(appState.inventory).length > 0) {
-            warningHTML += '<p>برای گروه‌های محصول انتخابی، موجودی ثبت نشده است.</p>';
-        } else if (Object.keys(appState.inventory).length === 0) {
-            warningHTML += '<p>هیچ اطلاعاتی از موجودی محصولات آماده ثبت نشده است.</p>';
-        }
+       
+        warningHTML += '<hr style="margin: 15px 0;"><h4>آنالیز مواد اولیه مورد نیاز (بر اساس رنگ):</h4>';
 
-        warningHTML += '<hr style="margin: 15px 0;"><h4>آنالیز مواد اولیه مورد نیاز:</h4>';
-
-        const requiredMaterials = {};
-        Object.keys(requiredByGroup).forEach(group => {
-            const bom = appState.bom[group];
-            if (bom) {
-                Object.keys(bom).forEach(material => {
-                    requiredMaterials[material] = (requiredMaterials[material] || 0) + (requiredByGroup[group] * bom[material]);
-                });
+        const requiredMaterials = {}; // { 'MaterialName': { 'Color': { required, available, unit } } }
+        
+        itemsToEdit.forEach(item => {
+            const bomForGroup = appState.bom[item.productGroup];
+            if (bomForGroup) {
+                for (const materialName in bomForGroup) {
+                    const bomForMaterial = bomForGroup[materialName];
+                    const consumption = bomForMaterial[item.color] || bomForMaterial['نامشخص']; // Match product color or use a generic one
+                    
+                    if (consumption) {
+                         if (!requiredMaterials[materialName]) requiredMaterials[materialName] = {};
+                         const color = item.color;
+                         if (!requiredMaterials[materialName][color]) {
+                             const materialData = appState.materials[materialName]?.[color] || { stock: 0, unit: '??' };
+                             requiredMaterials[materialName][color] = { required: 0, available: materialData.stock, unit: materialData.unit };
+                         }
+                         requiredMaterials[materialName][color].required += item.quantity * consumption;
+                    }
+                }
             }
         });
 
         if (Object.keys(requiredMaterials).length > 0) {
-            Object.keys(requiredMaterials).sort().forEach(material => {
-                const required = requiredMaterials[material];
-                const materialData = appState.materials[material] || { stock: 0, unit: ''};
-                const available = materialData.stock;
-                const unit = materialData.unit;
-                warningHTML += `<p class="${required > available ? 'low-inventory' : ''}">ماده '${material}': نیاز <strong>${required.toFixed(2)}</strong> ${unit} / موجودی <strong>${available}</strong> ${unit}</p>`;
+            Object.keys(requiredMaterials).sort().forEach(materialName => {
+                Object.keys(requiredMaterials[materialName]).sort().forEach(color => {
+                    const data = requiredMaterials[materialName][color];
+                    warningHTML += `<p class="${data.required > data.available ? 'low-inventory' : ''}">ماده '${materialName} - ${color}': نیاز <strong>${data.required.toFixed(2)}</strong> ${data.unit} / موجودی <strong>${data.available}</strong> ${data.unit}</p>`;
+                });
             });
-            warningHTML += '<hr style="margin: 10px 0;"><h4>پتانسیل تولید بر اساس موجودی:</h4>';
-
-            const allProductGroups = [...new Set(itemsToEdit.map(i => i.productGroup))].sort();
-            allProductGroups.forEach(group => {
-                const bom = appState.bom[group];
-                let maxProducible = Infinity;
-                if (bom) {
-                    Object.keys(bom).forEach(material => {
-                        const available = (appState.materials[material] || {stock: 0}).stock;
-                        const consumption = bom[material];
-                        if (consumption > 0) {
-                           maxProducible = Math.min(maxProducible, Math.floor(available / consumption));
-                        }
-                    });
-                }
-                warningHTML += `<p>حداکثر تعداد قابل تولید از گروه '${group}': <strong>${isFinite(maxProducible) ? maxProducible : 0}</strong> عدد</p>`;
-            });
-
         } else {
-            warningHTML += '<p>هیچ استاندارد مصرفی برای گروه‌های محصول انتخابی تعریف نشده است.</p>';
+            warningHTML += '<p>هیچ استاندارد مصرفی برای گروه‌ها و رنگ‌های محصول انتخابی تعریف نشده است.</p>';
         }
 
         elements.inventoryWarningContainer.innerHTML = warningHTML;
@@ -1157,12 +1215,14 @@
         });
         showModal(elements.editQuantityModal);
     });
+
     elements.quantityConfirmBtn.addEventListener('click', () => {
         const inputs = document.querySelectorAll('#editQuantityList .quantity-input');
         const orderId = `PROD-${Date.now()}`;
         const orderDate = new Date().toLocaleString('fa-IR');
         let itemsAdded = 0;
         const file = appState.files[appState.activeFileId];
+
         inputs.forEach(input => {
             const uniqueId = input.dataset.id;
             const quantityToSend = parseInt(input.value, 10);
@@ -1170,37 +1230,33 @@
 
             const originalTask = file.tasks.find(t => t.uniqueId === uniqueId);
             if (!originalTask || quantityToSend > originalTask.quantity) return;
-
-            const quantityFromStock = originalTask.quantity - quantityToSend;
-            if (quantityFromStock > 0) {
-                const group = originalTask.productGroup;
-                if (appState.inventory[group]) {
-                    appState.inventory[group] = Math.max(0, appState.inventory[group] - quantityFromStock);
-                }
-            }
             
             if (quantityToSend > 0) {
-                 appState.productionLog.push({ ...originalTask, status: STATUSES.IN_PROGRESS, quantity: quantityToSend, logId: `${orderId}-${uniqueId}-${Date.now()}`, orderId, orderDate, sourceFileId: appState.activeFileId, sourceFileShortId: file.shortId });
-                 const group = originalTask.productGroup;
-                 const bom = appState.bom[group];
-                 if(bom){
-                    Object.keys(bom).forEach(material => {
-                        if(appState.materials[material]){
-                            appState.materials[material].stock -= (quantityToSend * bom[material]);
+                appState.productionLog.push({ ...originalTask, status: STATUSES.IN_PROGRESS, quantity: quantityToSend, logId: `${orderId}-${uniqueId}-${Date.now()}`, orderId, orderDate, sourceFileId: appState.activeFileId, sourceFileShortId: file.shortId });
+                
+                const bomForGroup = appState.bom[originalTask.productGroup];
+                if(bomForGroup){
+                    for (const materialName in bomForGroup) {
+                        const bomForMaterial = bomForGroup[materialName];
+                        const consumption = bomForMaterial[originalTask.color] || bomForMaterial['نامشخص'];
+                        
+                        if (consumption && appState.materials[materialName] && appState.materials[materialName][originalTask.color]) {
+                            appState.materials[materialName][originalTask.color].stock -= (quantityToSend * consumption);
                         }
-                    });
-                 }
+                    }
+                }
                 itemsAdded++;
             }
            
-            originalTask.status = quantityToSend > 0 ? STATUSES.IN_PROGRESS : STATUSES.DONE;
+            originalTask.quantity -= quantityToSend;
+            if (originalTask.quantity === 0) {
+                 originalTask.status = STATUSES.DONE;
+            }
         });
         if (itemsAdded > 0) {
             showToast(`${itemsAdded} دستور تولید جدید صادر شد.`);
         }
-        if (inputs.length > itemsAdded) {
-             showToast(`تعدادی از آیتم‌ها از موجودی انبار تامین شد.`);
-        }
+        
         saveState(); 
         applyProcessingFilters(); 
         hideModal(elements.editQuantityModal);
@@ -1266,66 +1322,76 @@
 
         const itemsToChange = appState.productionLog.filter(log => selectedIds.has(log.logId));
         let changedCount = 0;
+        const affectedBatches = {}; // { batchCode: { quantityChange: 0, logIdsToRemove: [] } }
 
         if (toStatus === STATUSES.READY) {
             if (itemsToChange.some(item => item.sourceFileId === 'manual')) {
                 showToast('امکان بازگشت به "آماده تولید" برای آیتم‌های دستی وجود ندارد.', 'error');
                 return;
             }
-            const logIdsToRemove = new Set();
+            const logIdsToRemoveFromProdLog = new Set();
             itemsToChange.forEach(log => {
+                if (log.batchCode) {
+                    if (!affectedBatches[log.batchCode]) affectedBatches[log.batchCode] = { quantityChange: 0, logIdsToRemove: [] };
+                    affectedBatches[log.batchCode].quantityChange -= log.quantity;
+                    affectedBatches[log.batchCode].logIdsToRemove.push(log.logId);
+                }
                 const file = appState.files[log.sourceFileId];
                 if (file) {
                     const task = file.tasks.find(t => t.uniqueId === log.uniqueId);
                     if (task) {
-                        task.quantity = (task.quantity || 0) + log.quantity;
-                        task.status = STATUSES.READY;
-                    } else {
-                        const revivedTask = { ...log, quantity: log.quantity, status: STATUSES.READY };
-                         ['logId', 'orderId', 'orderDate', 'sourceFileShortId', 'batchCode', 'status'].forEach(p => delete revivedTask[p]);
-                        file.tasks.push(revivedTask);
+                        task.quantity += log.quantity;
+                        if(task.status === STATUSES.DONE) task.status = STATUSES.READY; // Only revert status if it was fully done
                     }
-                    logIdsToRemove.add(log.logId);
+                    logIdsToRemoveFromProdLog.add(log.logId);
                     changedCount++;
                 }
             });
-            appState.productionLog = appState.productionLog.filter(log => !logIdsToRemove.has(log.logId));
-             if (changedCount > 0) showToast(`${changedCount} مورد به صف "آماده تولید" بازگردانده شد.`);
+            
+            // Apply batch changes
+            for(const batchCode in affectedBatches) {
+                const batch = appState.productionBatches[batchCode];
+                if (batch) {
+                    batch.totalQuantity += affectedBatches[batchCode].quantityChange;
+                    batch.logIds = batch.logIds.filter(id => !affectedBatches[batchCode].logIdsToRemove.includes(id));
+                    if (batch.logIds.length === 0) {
+                        delete appState.productionBatches[batchCode];
+                    }
+                }
+            }
+            appState.productionLog = appState.productionLog.filter(log => !logIdsToRemoveFromProdLog.has(log.logId));
+
+            if (changedCount > 0) showToast(`${changedCount} مورد به صف "آماده تولید" بازگردانده شد.`);
         } else {
-             const affectedBatchCodes = new Set();
              itemsToChange.forEach(log => {
                 if (log.status !== toStatus) {
-                    if ((toStatus === STATUSES.CANCELLED || toStatus === STATUSES.READY) && log.sourceFileId !== 'manual') {
-                        const file = appState.files[log.sourceFileId];
-                        const task = file?.tasks.find(t => t.uniqueId === log.uniqueId);
-                        if(task){
-                           task.quantity += log.quantity;
-                           task.status = STATUSES.READY;
-                        }
-                    }
-
                     log.status = toStatus;
                     changedCount++;
-                    if (log.batchCode) affectedBatchCodes.add(log.batchCode);
+                    if(log.batchCode) {
+                         if (!affectedBatches[log.batchCode]) affectedBatches[log.batchCode] = { quantityChange: 0, logIdsToRemove: [] };
+                    }
                 }
             });
-            if (toStatus === STATUSES.DONE) {
-                affectedBatchCodes.forEach(batchCode => {
-                    const batch = appState.productionBatches[batchCode];
-                    if (!batch) return;
-                    const allBatchLogs = appState.productionLog.filter(log => log.batchCode === batchCode);
-                    if (allBatchLogs.every(l => l.status === STATUSES.DONE)) {
-                        if (!batch.completionDate) batch.completionDate = Date.now();
-                        Object.keys(batch.stages).forEach(stageKey => batch.stages[stageKey] = true);
-                    }
-                });
-            }
             if (changedCount > 0) showToast(`${changedCount} مورد به وضعیت "${toStatus}" تغییر یافت.`);
         }
+        
+        Object.keys(affectedBatches).forEach(batchCode => {
+            const batch = appState.productionBatches[batchCode];
+            if (!batch) return;
+
+            const allLogsInBatch = appState.productionLog.filter(l => l.batchCode === batchCode);
+            if (allLogsInBatch.length > 0 && allLogsInBatch.every(l => l.status === STATUSES.DONE)) {
+                if (!batch.completionDate) {
+                    batch.completionDate = Date.now();
+                    Object.keys(batch.stages).forEach(stageKey => batch.stages[stageKey] = true);
+                }
+            } else {
+                batch.completionDate = null;
+            }
+        });
 
         if (changedCount > 0) {
             saveState();
-            applyReportFilters();
         } else if (toStatus !== STATUSES.READY) {
             showToast('هیچ موردی برای تغییر وضعیت یافت نشد.', 'error');
         }
@@ -1429,6 +1495,12 @@
         const status = elements.trackingStatusFilter.value;
         const dateFilter = elements.trackingDateFilter.value;
 
+        // Before re-rendering, get the open details to preserve their state
+        const visibleDetailsIds = new Set(
+            [...document.querySelectorAll('#batchTrackingTableContainer .details-row.visible')]
+            .map(row => row.id.replace('details-', ''))
+        );
+
         let filteredBatches = Object.values(appState.productionBatches);
 
         if (searchTerm) {
@@ -1449,6 +1521,14 @@
         
         currentFilteredBatches = filteredBatches;
         renderTrackingTable(currentFilteredBatches);
+
+        // After re-rendering, restore the visible state of details rows
+        visibleDetailsIds.forEach(batchCode => {
+            const detailsRow = document.getElementById(`details-${batchCode}`);
+            if (detailsRow) {
+                detailsRow.classList.add('visible');
+            }
+        });
     };
 
     [elements.trackingSearchInput, elements.trackingDateFilter, elements.trackingGroupFilter, elements.trackingStatusFilter].forEach(el => {
@@ -1528,6 +1608,11 @@
         if (e.target.closest('[data-details-batch]')) {
             const batchCode = e.target.closest('[data-details-batch]').dataset.detailsBatch;
             document.getElementById(`details-${batchCode}`).classList.toggle('visible');
+            // Render materials only when opening the details for the first time
+            if (document.getElementById(`details-${batchCode}`).classList.contains('visible')) {
+                renderStandardMaterialsForBatch(batchCode);
+                renderManualMaterialsForBatch(batchCode);
+            }
         } 
         else if (e.target.closest('[data-print-batch]')) {
             const oldBatchCode = e.target.closest('[data-print-batch]').dataset.printBatch;
@@ -1630,28 +1715,42 @@
 
     const renderStandardMaterialsForBatch = (batchCode) => {
         const container = document.getElementById(`standard-materials-${batchCode}`);
-        if(!container) return;
+        if (!container) return;
 
         const batch = appState.productionBatches[batchCode];
-        if(!batch) return;
+        if (!batch) return;
 
-        const requiredMaterials = {};
-        const bom = appState.bom[batch.productGroup];
-        if (bom) {
-            Object.keys(bom).forEach(material => {
-                requiredMaterials[material] = (requiredMaterials[material] || 0) + (batch.totalQuantity * bom[material]);
-            });
-        }
+        const requiredMaterials = {}; // { 'Material-Color': { name, color, required, unit } }
+        const allItemsInBatch = appState.productionLog.filter(log => log.batchCode === batchCode);
+
+        allItemsInBatch.forEach(item => {
+            const bomForGroup = appState.bom[item.productGroup];
+            if (bomForGroup) {
+                for (const materialName in bomForGroup) {
+                    const bomForMaterial = bomForGroup[materialName];
+                    const consumption = bomForMaterial[item.color] || bomForMaterial['نامشخص'];
+                    
+                    if (consumption) {
+                        const key = `${materialName}-${item.color}`;
+                        if (!requiredMaterials[key]) {
+                            const unit = appState.materials[materialName]?.[item.color]?.unit || '??';
+                            requiredMaterials[key] = { name: materialName, color: item.color, required: 0, unit };
+                        }
+                        requiredMaterials[key].required += item.quantity * consumption;
+                    }
+                }
+            }
+        });
 
         if (Object.keys(requiredMaterials).length === 0) {
             container.innerHTML = '<p style="font-size: 13px; color: #6c757d;">استاندارد مصرفی برای این گروه تعریف نشده.</p>';
             return;
         }
 
-        let tableHTML = '<table><thead><tr><th>ماده</th><th>مقدار</th><th>واحد</th></tr></thead><tbody>';
-        Object.keys(requiredMaterials).sort().forEach(material => {
-            const materialData = appState.materials[material] || { unit: '' };
-            tableHTML += `<tr><td>${material}</td><td>${requiredMaterials[material].toFixed(2)}</td><td>${materialData.unit}</td></tr>`;
+        let tableHTML = '<table><thead><tr><th>ماده</th><th>رنگ</th><th>مقدار</th><th>واحد</th></tr></thead><tbody>';
+        Object.keys(requiredMaterials).sort().forEach(key => {
+            const mat = requiredMaterials[key];
+            tableHTML += `<tr><td>${mat.name}</td><td>${mat.color}</td><td>${mat.required.toFixed(2)}</td><td>${mat.unit}</td></tr>`;
         });
         container.innerHTML = tableHTML + '</tbody></table>';
     };
@@ -1681,31 +1780,21 @@
             const batch = appState.productionBatches[batchCode];
             if (batch) {
                 batch.stages[stageKey] = e.target.checked;
-                const isCompleted = Object.values(batch.stages).every(s => s === true);
-                if (isCompleted && !batch.completionDate) {
+                const allStagesChecked = Object.values(batch.stages).every(v => v === true);
+                if (allStagesChecked && !batch.completionDate) {
                     batch.completionDate = Date.now();
-                } else if (!isCompleted && batch.completionDate) {
+                    batch.logIds.forEach(logId => {
+                        const logItem = appState.productionLog.find(log => log.logId === logId);
+                        if (logItem) logItem.status = STATUSES.DONE;
+                    });
+                } else if (!allStagesChecked && batch.completionDate) {
                     batch.completionDate = null;
+                     batch.logIds.forEach(logId => {
+                        const logItem = appState.productionLog.find(log => log.logId === logId);
+                        if (logItem && logItem.status === STATUSES.DONE) logItem.status = STATUSES.IN_PROGRESS;
+                    });
                 }
                 saveState();
-                
-                const mainRow = e.target.closest('.details-row').previousElementSibling;
-                if (mainRow) {
-                    const statusBadge = mainRow.querySelector('.status-badge');
-                    const durationCell = mainRow.children[5];
-
-                    if (isCompleted) {
-                        statusBadge.classList.remove('status-badge-inprogress');
-                        statusBadge.classList.add('status-badge-completed');
-                        statusBadge.textContent = 'تکمیل شده';
-                        durationCell.textContent = formatDuration(batch.creationDate, batch.completionDate);
-                    } else {
-                        statusBadge.classList.remove('status-badge-completed');
-                        statusBadge.classList.add('status-badge-inprogress');
-                        statusBadge.textContent = 'درحال انجام';
-                        durationCell.textContent = formatDuration(batch.creationDate, null);
-                    }
-                }
             }
         }
     });
@@ -1717,32 +1806,43 @@
 
         const aggregatedItems = {};
         items.forEach(item => {
-            const key = `${item.productGroup}-${item.size}`;
+            const key = `${item.productName}-${item.color}-${item.size}`;
             if(!aggregatedItems[key]){
-                aggregatedItems[key] = { productGroup: item.productGroup, size: item.size, quantity: 0 };
+                aggregatedItems[key] = { ...item, quantity: 0 };
             }
             aggregatedItems[key].quantity += item.quantity;
         });
 
         const tableRows = Object.values(aggregatedItems).map(item => {
             totalQuantity += item.quantity; 
-            return `<tr><td>${item.productGroup}</td><td>${item.size}</td><td>${item.quantity}</td></tr>`; 
+            return `<tr><td>${item.productName}</td><td>${item.color}</td><td>${item.size}</td><td>${item.quantity}</td></tr>`; 
         }).join('');
         
-        const requiredMaterials = {};
-        const bom = appState.bom[group];
-        if (bom) {
-            Object.keys(bom).forEach(material => {
-                requiredMaterials[material] = (requiredMaterials[material] || 0) + (totalQuantity * bom[material]);
-            });
-        }
+        const requiredMaterials = {}; // Same logic as renderStandardMaterialsForBatch
+        items.forEach(item => {
+            const bomForGroup = appState.bom[item.productGroup];
+            if (bomForGroup) {
+                for (const materialName in bomForGroup) {
+                    const bomForMaterial = bomForGroup[materialName];
+                    const consumption = bomForMaterial[item.color] || bomForMaterial['نامشخص'];
+                    if (consumption) {
+                        const key = `${materialName}-${item.color}`;
+                        if (!requiredMaterials[key]) {
+                            const unit = appState.materials[materialName]?.[item.color]?.unit || '??';
+                            requiredMaterials[key] = { name: materialName, color: item.color, required: 0, unit };
+                        }
+                        requiredMaterials[key].required += item.quantity * consumption;
+                    }
+                }
+            }
+        });
         
         let materialsHTML = '';
         if(Object.keys(requiredMaterials).length > 0){
-            materialsHTML += '<h3>مواد اولیه استاندارد</h3><table><thead><tr><th>ماده اولیه</th><th>مقدار مورد نیاز</th><th>واحد</th></tr></thead><tbody>';
-            Object.keys(requiredMaterials).sort().forEach(material => {
-                const materialData = appState.materials[material] || { unit: '' };
-                materialsHTML += `<tr><td>${material}</td><td>${requiredMaterials[material].toFixed(2)}</td><td>${materialData.unit}</td></tr>`;
+            materialsHTML += '<h3>مواد اولیه استاندارد</h3><table><thead><tr><th>ماده</th><th>رنگ</th><th>مقدار</th><th>واحد</th></tr></thead><tbody>';
+            Object.keys(requiredMaterials).sort().forEach(key => {
+                const mat = requiredMaterials[key];
+                materialsHTML += `<tr><td>${mat.name}</td><td>${mat.color}</td><td>${mat.required.toFixed(2)}</td><td>${mat.unit}</td></tr>`;
             });
             materialsHTML += '</tbody></table>';
         }
@@ -1758,36 +1858,9 @@
         const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
         const boxSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>`;
         const stageItems = Object.keys(PRODUCTION_STAGES).map(key => { const isChecked = stages[key]; return `<div class="stage-item ${isChecked ? 'completed' : ''}">${isChecked ? checkSVG : boxSVG}<span>${PRODUCTION_STAGES[key]}</span></div>`; }).join('');
-        const content = `<html><head><title>دستور تولید - ${batchCode}</title><style>:root{--success-color:#198754;--secondary-color:#6c757d}body{font-family:'Vazirmatn',sans-serif;direction:rtl;margin:0;padding:20px;background-color:#f0f2f5}.print-container{max-width:800px;margin:auto;background:white;padding:30px;border-radius:10px;box-shadow:0 0 20px rgba(0,0,0,.1)}.print-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:15px;border-bottom:2px solid #333}.header-info h1{margin:0;font-size:28px}.header-info p{margin:5px 0 0;color:#555}.batch-code-display{background:#212529;color:white;padding:15px 25px;border-radius:8px;font-size:28px;letter-spacing:2px;text-align:center;margin:25px 0}h3{text-align:right;margin-bottom:15px;color:#333}table{width:100%;border-collapse:collapse;font-size:15px}th,td{border:1px solid #dee2e6;padding:12px 15px;text-align:right}thead th{background-color:#f8f9fa;font-weight:600}tbody tr:nth-child(even){background-color:#f8f9fa}.total{font-weight:700;font-size:1.3em;margin-top:20px;text-align:left;padding:10px;background:#f8f9fa;border-radius:5px}.print-body{display:flex;flex-direction:row-reverse;gap:30px}.main-content{flex:3}.sidebar-content{flex:2;border-right:1px solid #dee2e6;padding-right:30px}.stages-grid-vertical{display:flex;flex-direction:column;gap:15px}.stage-item{display:flex;align-items:center;background:#f8f9fa;padding:12px;border-radius:8px;border-right:5px solid var(--secondary-color);transition:all .2s}.stage-item.completed{border-right-color:var(--success-color);background-color:#e6f9f0;color:var(--success-color)}.stage-item svg{flex-shrink:0;margin-left:15px}.stage-item span{font-size:16px;font-weight:500}@media print{body{background-color:#fff;padding:0}.print-container{box-shadow:none;border-radius:0;max-width:100%}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4;margin:10mm}}</style></head><body><div class="print-container"><div class="print-header"><div class="header-info"><h1>دستور کار تولید</h1><p>تاریخ چاپ: ${new Date().toLocaleDateString('fa-IR')}</p></div><img src="https://placehold.co/100x50/cccccc/212529?text=LOGO" alt="Logo" style="opacity:0.7"></div><div class="batch-code-display">${batchCode}</div><div class="print-body"><div class="sidebar-content"><h3>چک لیست مراحل</h3><div class="stages-grid-vertical">${stageItems}</div></div><div class="main-content"><h3>خلاصه سفارش</h3><table><thead><tr><th>گروه محصول</th><th>سایز</th><th>تعداد</th></tr></thead><tbody>${tableRows}</tbody></table><div class="total">تعداد کل: ${totalQuantity}</div>${materialsHTML}${description ? `<h3>توضیحات</h3><p style="white-space: pre-wrap; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6;">${description}</p>` : ''}</div></div></div><script>window.onload=function(){window.print()}<\/script></body></html>`;
+        const content = `<html><head><title>دستور تولید - ${batchCode}</title><style>:root{--success-color:#198754;--secondary-color:#6c757d}body{font-family:'Vazirmatn',sans-serif;direction:rtl;margin:0;padding:20px;background-color:#f0f2f5}.print-container{max-width:800px;margin:auto;background:white;padding:30px;border-radius:10px;box-shadow:0 0 20px rgba(0,0,0,.1)}.print-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:15px;border-bottom:2px solid #333}.header-info h1{margin:0;font-size:28px}.header-info p{margin:5px 0 0;color:#555}.batch-code-display{background:#212529;color:white;padding:15px 25px;border-radius:8px;font-size:28px;letter-spacing:2px;text-align:center;margin:25px 0}h3{text-align:right;margin-bottom:15px;color:#333}table{width:100%;border-collapse:collapse;font-size:15px}th,td{border:1px solid #dee2e6;padding:12px 15px;text-align:right}thead th{background-color:#f8f9fa;font-weight:600}tbody tr:nth-child(even){background-color:#f8f9fa}.total{font-weight:700;font-size:1.3em;margin-top:20px;text-align:left;padding:10px;background:#f8f9fa;border-radius:5px}.print-body{display:flex;flex-direction:row-reverse;gap:30px}.main-content{flex:3}.sidebar-content{flex:2;border-right:1px solid #dee2e6;padding-right:30px}.stages-grid-vertical{display:flex;flex-direction:column;gap:15px}.stage-item{display:flex;align-items:center;background:#f8f9fa;padding:12px;border-radius:8px;border-right:5px solid var(--secondary-color);transition:all .2s}.stage-item.completed{border-right-color:var(--success-color);background-color:#e6f9f0;color:var(--success-color)}.stage-item svg{flex-shrink:0;margin-left:15px}.stage-item span{font-size:16px;font-weight:500}@media print{body{background-color:#fff;padding:0}.print-container{box-shadow:none;border-radius:0;max-width:100%}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4;margin:10mm}}</style></head><body><div class="print-container"><div class="print-header"><div class="header-info"><h1>دستور کار تولید</h1><p>تاریخ چاپ: ${new Date().toLocaleDateString('fa-IR')}</p></div><img src="https://placehold.co/100x50/cccccc/212529?text=LOGO" alt="Logo" style="opacity:0.7"></div><div class="batch-code-display">${batchCode}</div><div class="print-body"><div class="sidebar-content"><h3>چک لیست مراحل</h3><div class="stages-grid-vertical">${stageItems}</div></div><div class="main-content"><h3>خلاصه سفارش</h3><table><thead><tr><th>محصول</th><th>رنگ</th><th>سایز</th><th>تعداد</th></tr></thead><tbody>${tableRows}</tbody></table><div class="total">تعداد کل: ${totalQuantity}</div>${materialsHTML}${description ? `<h3>توضیحات</h3><p style="white-space: pre-wrap; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6;">${description}</p>` : ''}</div></div></div><script>window.onload=function(){window.print()}<\/script></body></html>`;
         printWindow.document.write(content); printWindow.document.close();
     };
-
-    // --- Initial Load ---
-    if (window.firebaseServices) {
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                elements.appContainer.style.display = 'block';
-                elements.authContainer.style.display = 'none';
-                elements.userEmail.textContent = user.email;
-
-                onSnapshot(dbDocRef, (doc) => {
-                    if (doc.exists()) {
-                        initializeAppWithData(doc.data());
-                    } else {
-                        initializeAppWithData(defaultState);
-                        saveState(); 
-                    }
-                });
-            } else {
-                elements.appContainer.style.display = 'none';
-                elements.authContainer.style.display = 'block';
-            }
-        });
-    } else {
-         console.error("Firebase is not initialized. Please check your configuration.");
-         showToast('خطا در اتصال به پایگاه داده. لطفا تنظیمات Firebase را بررسی کنید.', 'error');
-    }
-
 
     elements.exportReportBtn.addEventListener('click', () => {
         if (currentFilteredLog.length === 0) {
