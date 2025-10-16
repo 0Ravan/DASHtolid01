@@ -199,7 +199,16 @@
                         <input type="text" id="materialName" placeholder="نام ماده اولیه" style="flex-grow: 2;">
                         <input type="text" id="materialColor" placeholder="رنگ ماده اولیه">
                         <input type="number" id="materialStock" placeholder="مقدار برای افزودن" min="0">
-                         <input type="text" id="materialUnit" placeholder="واحد (متر، عدد...)" >
+                         <select id="materialUnit">
+                            <option value="">-- واحد --</option>
+                            <option>عدد</option>
+                            <option>کیلوگرم</option>
+                            <option>گرم</option>
+                            <option>بسته</option>
+                            <option>طاقه</option>
+                            <option>متر</option>
+                            <option>سانتی متر</option>
+                        </select>
                         <button id="addMaterialBtn" class="btn-primary">افزودن</button>
                     </div>
                     <div id="materialsTableContainer" style="max-height: 400px; overflow-y: auto;"></div>
@@ -1224,14 +1233,28 @@
         const file = appState.files[appState.activeFileId];
         const itemsToEdit = file.tasks.filter(task => selectedIds.has(task.uniqueId));
         
-        let warningHTML = '<h4>آنالیز موجودی محصول آماده:</h4>';
+        let warningHTML = '<h4>آنالیز موجودی محصول آماده (تجمیعی):</h4>';
+        const aggregatedRequirements = {};
         itemsToEdit.forEach(task => {
-            const { productGroup, color, size, quantity, productName } = task;
+            const key = `${task.productGroup}|${task.color}|${task.size}`;
+            if (!aggregatedRequirements[key]) {
+                aggregatedRequirements[key] = {
+                    productGroup: task.productGroup,
+                    color: task.color,
+                    size: task.size,
+                    totalQuantity: 0
+                };
+            }
+            aggregatedRequirements[key].totalQuantity += task.quantity;
+        });
+
+        Object.values(aggregatedRequirements).forEach(agg => {
+            const { productGroup, color, size, totalQuantity } = agg;
             const available = appState.inventory[productGroup]?.[color]?.[size] || 0;
-            const neededToProduce = Math.max(0, quantity - available);
+            const neededToProduce = Math.max(0, totalQuantity - available);
             warningHTML += `<p class="${neededToProduce > 0 ? 'low-inventory' : ''}">
-                '${productName} - ${color} - ${size}': 
-                نیاز کل <strong>${quantity}</strong> / 
+                '${productGroup} - ${color} - ${size}': 
+                نیاز کل <strong>${totalQuantity}</strong> / 
                 موجودی آماده <strong>${available}</strong> / 
                 <strong>نیاز به تولید: ${neededToProduce}</strong>
             </p>`;
@@ -2038,7 +2061,7 @@
                 .materials-list li span { font-weight: 600; }
                 .checklist li { justify-content: flex-start; background: #fafafa; margin-bottom: 6px; border-radius: 4px; border-right: 3px solid #6f42c1; padding: 10px 12px; font-size: 15px; }
                 .section { margin-top: 30px; }
-                .main-layout { display: grid; grid-template-columns: 1fr 2.5fr; gap: 30px; align-items: start; }
+                .main-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; align-items: start; }
                 tfoot td { border-top: 2px solid #333; background-color: #f5f5f5; }
                 @media print {
                     body { background-color: white; padding: 0; }
@@ -2057,8 +2080,8 @@
         `);
         printWindow.document.write(`
             <div class="section main-layout">
-                <div>${checklistHTML}</div>
                 <div>${itemsHTML}</div>
+                 <div>${checklistHTML}</div>
             </div>
         `);
         printWindow.document.write(`<div class="section">${standardMaterialsHTML}</div>`);
