@@ -1314,6 +1314,8 @@
         const orderDate = new Date().toLocaleString('fa-IR');
         let itemsAdded = 0;
         const file = appState.files[appState.activeFileId];
+        
+        const newTasksForFile = [];
 
         inputs.forEach(input => {
             const uniqueId = input.dataset.id;
@@ -1324,8 +1326,26 @@
             if (!originalTask || quantityToSend > originalTask.quantity) return;
             
             if (quantityToSend > 0) {
-                appState.productionLog.push({ ...originalTask, status: STATUSES.IN_PROGRESS, quantity: quantityToSend, logId: `${orderId}-${uniqueId}-${Date.now()}`, orderId, orderDate, sourceFileId: appState.activeFileId, sourceFileShortId: file.shortId });
+                // Full quantity
+                if (quantityToSend === originalTask.quantity) {
+                    originalTask.status = STATUSES.IN_PROGRESS;
+                    appState.productionLog.push({ ...originalTask, status: STATUSES.IN_PROGRESS, logId: `${orderId}-${uniqueId}-${Date.now()}`, orderId, orderDate, sourceFileId: appState.activeFileId, sourceFileShortId: file.shortId });
+                } 
+                // Partial quantity
+                else {
+                    originalTask.quantity -= quantityToSend;
+                    
+                    const newTask = {
+                        ...originalTask,
+                        quantity: quantityToSend,
+                        status: STATUSES.IN_PROGRESS,
+                        uniqueId: `${originalTask.uniqueId}_${Date.now()}` // Create a new unique ID for the split part
+                    };
+                    newTasksForFile.push(newTask);
+                    appState.productionLog.push({ ...newTask, logId: `${orderId}-${newTask.uniqueId}-${Date.now()}`, orderId, orderDate, sourceFileId: appState.activeFileId, sourceFileShortId: file.shortId });
+                }
                 
+                // Deduct materials (common for both cases)
                 const bomForGroup = appState.bom[originalTask.productGroup];
                 if(bomForGroup){
                     for (const materialName in bomForGroup) {
@@ -1339,12 +1359,12 @@
                 }
                 itemsAdded++;
             }
-           
-            originalTask.quantity -= quantityToSend;
-            if (originalTask.quantity === 0) {
-                 originalTask.status = STATUSES.DONE;
-            }
         });
+
+        if (newTasksForFile.length > 0) {
+            file.tasks.push(...newTasksForFile);
+        }
+        
         if (itemsAdded > 0) {
             showToast(`${itemsAdded} دستور تولید جدید صادر شد.`);
         }
