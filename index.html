@@ -1470,6 +1470,29 @@
                 log.status = toStatus;
                 changedCount++;
             });
+
+            const affectedBatchCodes = new Set(itemsToChange.map(log => log.batchCode).filter(Boolean));
+            
+            affectedBatchCodes.forEach(batchCode => {
+                const batch = appState.productionBatches[batchCode];
+                if (!batch) return;
+
+                const allBatchLogs = batch.logIds.map(id => appState.productionLog.find(l => l.logId === id)).filter(Boolean);
+                if (allBatchLogs.length === 0) return;
+
+                const allDone = allBatchLogs.every(log => log.status === STATUSES.DONE);
+
+                if (allDone) {
+                    batch.isCompleted = true;
+                    if (!batch.completionDate) {
+                        batch.completionDate = new Date().toISOString();
+                    }
+                } else {
+                    batch.isCompleted = false;
+                    batch.completionDate = null;
+                }
+            });
+            
             if (changedCount > 0) {
                 saveState();
                 showToast(`${changedCount} مورد به وضعیت "${toStatus}" تغییر یافت.`);
@@ -1838,7 +1861,7 @@
         else if (e.target.classList.contains('complete-batch-btn')) {
             showConfirmationModal(
                 'تکمیل بچ تولید',
-                `آیا از تکمیل نهایی بچ <strong>${batchCode}</strong> اطمینان دارید؟ این عمل تمام مراحل را تیک زده و وضعیت را به "تکمیل شده" تغییر می‌دهد.`,
+                `آیا از تکمیل نهایی بچ <strong>${batchCode}</strong> اطمینان دارید؟ این عمل تمام مراحل را تیک زده و وضعیت آیتم های مربوطه را به "تکمیل شده" تغییر می‌دهد.`,
                 () => {
                     const batch = appState.productionBatches[batchCode];
                     if (batch) {
@@ -1847,6 +1870,14 @@
                         Object.keys(batch.stages).forEach(stage => {
                             batch.stages[stage] = true;
                         });
+                        
+                        batch.logIds.forEach(logId => {
+                            const logItem = appState.productionLog.find(l => l.logId === logId);
+                            if(logItem) {
+                                logItem.status = STATUSES.DONE;
+                            }
+                        });
+
                         saveState();
                         showToast(`بچ ${batchCode} با موفقیت تکمیل شد.`);
                     }
