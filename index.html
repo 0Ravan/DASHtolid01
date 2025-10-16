@@ -1936,13 +1936,15 @@
             aggregatedItems[key].quantity += item.quantity;
         });
 
+        let totalPrintQuantity = 0;
         let itemsHTML = '<h4>لیست آیتم‌ها (تجمیعی)</h4><table><thead><tr><th>گروه محصول</th><th>رنگ</th><th>سایز</th><th>تعداد کل</th></tr></thead><tbody>';
         Object.values(aggregatedItems)
             .sort((a,b) => `${a.productGroup}|${a.color}|${a.size}`.localeCompare(`${b.productGroup}|${b.color}|${b.size}`))
             .forEach(agg => {
                 itemsHTML += `<tr><td>${agg.productGroup}</td><td>${agg.color}</td><td>${agg.size}</td><td><b>${agg.quantity}</b></td></tr>`;
+                totalPrintQuantity += agg.quantity;
             });
-        itemsHTML += '</tbody></table>';
+        itemsHTML += `</tbody><tfoot><tr><td colspan="3" style="text-align: left; font-weight: 700;">جمع کل</td><td style="font-weight: 700; font-size: 1.1em;"><b>${totalPrintQuantity}</b></td></tr></tfoot></table>`;
 
         let standardMaterialsHTML = '<h4>مواد اولیه استاندارد</h4>';
         if(Object.keys(standardMaterials).length > 0) {
@@ -2001,10 +2003,12 @@
                 th { background-color: #f5f5f5; font-weight: 600; }
                 tr:nth-child(even) { background-color: #fafafa; }
                 ul { list-style-type: none; padding-right: 0; margin: 0; }
-                .materials-list li, .checklist li { padding: 10px 12px; border-bottom: 1px dashed #ccc; display: flex; justify-content: space-between; font-size: 15px; }
+                .materials-list li { padding: 10px 12px; border-bottom: 1px dashed #ccc; display: flex; justify-content: space-between; font-size: 15px; }
                 .materials-list li span { font-weight: 600; }
-                .checklist li { justify-content: flex-start; }
+                .checklist li { justify-content: flex-start; background: #fafafa; margin-bottom: 6px; border-radius: 4px; border-right: 3px solid #6f42c1; padding: 10px 12px; font-size: 15px; }
                 .section { margin-top: 30px; }
+                .main-layout { display: grid; grid-template-columns: 1fr 2.5fr; gap: 30px; align-items: start; }
+                tfoot td { border-top: 2px solid #333; background-color: #f5f5f5; }
                 @media print {
                     body { background-color: white; padding: 0; }
                     .print-page { box-shadow: none; border: none; border-radius: 0; }
@@ -2020,10 +2024,14 @@
             </div>
             <div class="batch-code">${batch.code}</div>
         `);
-        printWindow.document.write(`<div class="section">${itemsHTML}</div>`);
+        printWindow.document.write(`
+            <div class="section main-layout">
+                <div>${checklistHTML}</div>
+                <div>${itemsHTML}</div>
+            </div>
+        `);
         printWindow.document.write(`<div class="section">${standardMaterialsHTML}</div>`);
         printWindow.document.write(`<div class="section">${manualMaterialsHTML}</div>`);
-        printWindow.document.write(`<div class="section">${checklistHTML}</div>`);
         printWindow.document.write('</div></body></html>');
         printWindow.document.close();
         printWindow.print();
