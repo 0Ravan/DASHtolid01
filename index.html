@@ -170,6 +170,7 @@
             <button id="showDashboardBtn" class="btn-primary">مدیریت فایل‌ها</button>
             <button id="showManualProductionBtn" class="btn-commission">تولید کارمزدی</button>
             <button id="showReportBtn" class="btn-primary" style="background-color: var(--success-color);">گزارش جامع</button>
+            <button id="showPrintingBtn" class="btn-primary" style="background-color: var(--inventory-color); color: #000;">در دست چاپ</button>
             <button id="showTrackingBtn" class="btn-tracking">رهگیری تولید</button>
             <button id="showInventoryBtn" class="btn-inventory">موجودی‌ها</button>
             <button id="showMaterialsBtn" class="btn-materials">استاندارد مواد</button>
@@ -303,6 +304,7 @@
                 <span>عملیات گروهی (برای موارد انتخابی):</span>
                 <label>تغییر به: <select id="reportToStatus"><option value="آماده تولید">بازگشت به آماده تولید</option><option value="درحال انجام">درحال انجام</option><option value="در دست چاپ">در دست چاپ</option><option value="انجام شده">انجام شده</option><option value="ابطال">ابطال</option></select></label>
                 <button id="reportBulkUpdateBtn" class="btn-warning">اعمال تغییر</button>
+                <button id="sendToPrintingBtn" class="btn-primary" style="background-color: var(--inventory-color); color: #000;">ارسال برای چاپ</button>
                 <button id="assignBatchCodeBtn" class="btn-primary">اختصاص کد بچ</button>
                 <button id="exportReportBtn" class="btn-success">خروجی اکسل</button>
             </div>
@@ -310,6 +312,25 @@
             <div id="reportTableContainer" style="max-height: 700px; overflow-y: auto;"></div>
         </div>
         
+        <div id="printingView" class="page-view hidden">
+            <h2>مدیریت اقلام در دست چاپ</h2>
+             <div class="filters">
+                <label>فیلتر فایل: <select id="printingFileFilter"><option value="">همه فایل‌ها</option></select></label>
+                <label>گروه محصول: <select id="printingGroupFilter"><option value="">همه گروه‌ها</option></select></label>
+                <label>فیلتر رنگ: <select id="printingColorFilter"><option value="">همه رنگ‌ها</option></select></label>
+                <label>فیلتر سایز: <select id="printingSizeFilter"><option value="">همه سایزها</option></select></label>
+                <button id="clearPrintingFiltersBtn" class="btn-secondary" style="margin-right: auto;">پاک کردن فیلترها</button>
+            </div>
+            <div class="bulk-update">
+                <span>عملیات گروهی (برای موارد انتخابی):</span>
+                <button id="printingBulkUpdateBtn" class="btn-warning">تغییر وضعیت به چاپ شده</button>
+                <button id="exportPrintingBtn" class="btn-success">خروجی اکسل</button>
+                <button id="printPrintingBtn" class="btn-primary">چاپ لیست</button>
+            </div>
+            <div id="printingSummaryCards" class="summary-cards"></div>
+            <div id="printingTableContainer" style="max-height: 700px; overflow-y: auto;"></div>
+        </div>
+
         <div id="trackingView" class="page-view hidden">
             <h2>رهگیری مراحل تولید</h2>
             <div class="filters">
@@ -398,6 +419,7 @@
         processingView: document.getElementById('processingView'),
         manualProductionView: document.getElementById('manualProductionView'),
         reportView: document.getElementById('reportView'),
+        printingView: document.getElementById('printingView'),
         trackingView: document.getElementById('trackingView'),
         inventoryView: document.getElementById('inventoryView'),
         materialsView: document.getElementById('materialsView'),
@@ -410,6 +432,7 @@
         showDashboardBtn: document.getElementById('showDashboardBtn'), 
         showReportBtn: document.getElementById('showReportBtn'),
         showManualProductionBtn: document.getElementById('showManualProductionBtn'),
+        showPrintingBtn: document.getElementById('showPrintingBtn'),
         showTrackingBtn: document.getElementById('showTrackingBtn'),
         showInventoryBtn: document.getElementById('showInventoryBtn'),
         showMaterialsBtn: document.getElementById('showMaterialsBtn'),
@@ -422,7 +445,19 @@
         reportBatchSearch: document.getElementById('reportBatchSearch'),
         reportBatchFilter: document.getElementById('reportBatchFilter'),
         assignBatchCodeBtn: document.getElementById('assignBatchCodeBtn'),
+        sendToPrintingBtn: document.getElementById('sendToPrintingBtn'),
         exportReportBtn: document.getElementById('exportReportBtn'),
+        // Printing View Elements
+        printingFileFilter: document.getElementById('printingFileFilter'),
+        printingGroupFilter: document.getElementById('printingGroupFilter'),
+        printingColorFilter: document.getElementById('printingColorFilter'),
+        printingSizeFilter: document.getElementById('printingSizeFilter'),
+        clearPrintingFiltersBtn: document.getElementById('clearPrintingFiltersBtn'),
+        printingBulkUpdateBtn: document.getElementById('printingBulkUpdateBtn'),
+        exportPrintingBtn: document.getElementById('exportPrintingBtn'),
+        printPrintingBtn: document.getElementById('printPrintingBtn'),
+        printingSummaryCards: document.getElementById('printingSummaryCards'),
+        printingTableContainer: document.getElementById('printingTableContainer'),
         // Inventory Elements
         inventoryExcelFile: document.getElementById('inventoryExcelFile'),
         inventoryTableContainer: document.getElementById('inventoryTableContainer'),
@@ -555,6 +590,9 @@
                     break;
                 case 'reportView':
                     renderReportView();
+                    break;
+                case 'printingView':
+                    renderPrintingView();
                     break;
                 case 'trackingView':
                     renderTrackingView();
@@ -693,12 +731,13 @@
     
     // --- View Navigation ---
     const showView = (viewName) => {
-        ['dashboardView', 'processingView', 'reportView', 'manualProductionView', 'trackingView', 'inventoryView', 'materialsView'].forEach(view => elements[view].classList.add('hidden'));
+        ['dashboardView', 'processingView', 'reportView', 'manualProductionView', 'printingView', 'trackingView', 'inventoryView', 'materialsView'].forEach(view => elements[view].classList.add('hidden'));
         elements[viewName].classList.remove('hidden');
     };
     elements.showDashboardBtn.addEventListener('click', () => showView('dashboardView'));
     elements.showManualProductionBtn.addEventListener('click', () => showView('manualProductionView'));
     elements.showReportBtn.addEventListener('click', () => { showView('reportView'); renderReportView(); });
+    elements.showPrintingBtn.addEventListener('click', () => { showView('printingView'); renderPrintingView(); });
     elements.showTrackingBtn.addEventListener('click', () => { showView('trackingView'); renderTrackingView(); });
     elements.showInventoryBtn.addEventListener('click', () => { showView('inventoryView'); renderInventoryView(); });
     elements.showMaterialsBtn.addEventListener('click', () => { showView('materialsView'); renderMaterialsView(); });
@@ -1333,11 +1372,38 @@
                 case STATUSES.DONE: statusClass = 'status-done'; break;
                 case STATUSES.CANCELLED: statusClass = 'status-cancelled'; break;
             }
-            tableHTML += `<tr class="${batchClass} ${statusClass}"><td><input type="checkbox" class="report-selector" data-id="${log.logId}"></td><td>${log.sourceFileShortId}</td><td>${fileName}</td><td>${log.batchCode || '-'}</td><td>${log.orderDate}</td><td>${log.sku}</td><td>${log.productName}</td><td>${log.productGroup}</td><td>${log.color}</td><td>${log.size}</td><td><b>${log.quantity}</b></td><td>${log.status}</td></tr>`;
+            tableHTML += `<tr class="${batchClass} ${statusClass}"><td><input type="checkbox" class="report-selector" data-id="${log.logId}" ${log.status === STATUSES.PRINTING ? 'disabled' : ''}></td><td>${log.sourceFileShortId}</td><td>${fileName}</td><td>${log.batchCode || '-'}</td><td>${log.orderDate}</td><td>${log.sku}</td><td>${log.productName}</td><td>${log.productGroup}</td><td>${log.color}</td><td>${log.size}</td><td><b>${log.quantity}</b></td><td>${log.status}</td></tr>`;
         });
         elements.reportTableContainer.innerHTML = tableHTML + `</tbody></table>`;
-        document.getElementById('selectAllReport').addEventListener('change', (e) => document.querySelectorAll('.report-selector').forEach(chk => chk.checked = e.target.checked));
+        document.getElementById('selectAllReport').addEventListener('change', (e) => document.querySelectorAll('.report-selector:not(:disabled)').forEach(chk => chk.checked = e.target.checked));
     };
+
+    elements.sendToPrintingBtn.addEventListener('click', () => {
+        const selectedIds = new Set([...document.querySelectorAll('.report-selector:checked:not(:disabled)')].map(chk => chk.dataset.id));
+        if (selectedIds.size === 0) {
+            showToast('موردی برای ارسال به چاپ انتخاب نشده.', 'error');
+            return;
+        }
+
+        let changedCount = 0;
+        const itemsToChange = appState.productionLog.filter(log => selectedIds.has(log.logId));
+        
+        const invalidItems = itemsToChange.filter(item => item.status !== STATUSES.IN_PROGRESS || item.batchCode);
+        if(invalidItems.length > 0) {
+            showToast('فقط آیتم‌های "درحال انجام" و بدون کد بچ را می‌توان برای چاپ ارسال کرد.', 'error');
+            return;
+        }
+
+        itemsToChange.forEach(log => {
+            log.status = STATUSES.PRINTING;
+            changedCount++;
+        });
+
+        if (changedCount > 0) {
+            saveState();
+            showToast(`${changedCount} مورد برای چاپ ارسال شد.`);
+        }
+    });
 
     elements.reportBulkUpdateBtn.addEventListener('click', () => {
         const toStatus = elements.reportToStatus.value;
@@ -1371,631 +1437,362 @@
             });
 
             if (changedCount > 0) {
-                // First, remove the log items from the main production log
                 appState.productionLog = appState.productionLog.filter(log => !logIdsToRemoveFromProdLog.has(log.logId));
-
-                // After removal, iterate through all batches to clean up and update them.
                 const allRemainingLogIds = new Set(appState.productionLog.map(l => l.logId));
                 for (const batchCode in appState.productionBatches) {
                     const batch = appState.productionBatches[batchCode];
-
-                    // Keep only the logIds that still exist in the main productionLog
                     batch.logIds = batch.logIds.filter(id => allRemainingLogIds.has(id));
-
                     if (batch.logIds.length === 0) {
-                        // If the batch is now empty, delete it.
                         delete appState.productionBatches[batchCode];
-                    } else {
-                        // If the batch still has items, recalculate its total quantity for consistency.
-                        const remainingLogsInBatch = appState.productionLog.filter(log => batch.logIds.includes(log.logId));
-                        batch.totalQuantity = remainingLogsInBatch.reduce((sum, log) => sum + log.quantity, 0);
                     }
                 }
-
-                showToast(`${changedCount} مورد به صف "آماده تولید" بازگردانده شد.`);
                 saveState();
-                // We don't need to call applyReportFilters() manually because saveState() triggers the onSnapshot listener which re-renders the current view.
+                showToast(`${changedCount} مورد به "آماده تولید" بازگشت داده شد.`);
             }
-
-        } else { // Handle other status changes (IN_PROGRESS, DONE, etc.)
-            const affectedBatches = new Set();
+        } else {
             itemsToChange.forEach(log => {
-                if (log.status !== toStatus) {
-                    log.status = toStatus;
-                    changedCount++;
-                    if (log.batchCode) {
-                        affectedBatches.add(log.batchCode);
-                    }
-                }
+                log.status = toStatus;
+                changedCount++;
             });
-
             if (changedCount > 0) {
-                // After changing statuses, update completion date for affected batches
-                affectedBatches.forEach(batchCode => {
-                    const batch = appState.productionBatches[batchCode];
-                    if (!batch) return;
-
-                    const allLogsInBatch = appState.productionLog.filter(l => l.batchCode === batchCode);
-
-                    if (allLogsInBatch.length > 0 && allLogsInBatch.every(l => l.status === STATUSES.DONE)) {
-                        if (!batch.completionDate) {
-                            batch.completionDate = Date.now();
-                            Object.keys(batch.stages).forEach(stageKey => batch.stages[stageKey] = true);
-                        }
-                    } else {
-                        batch.completionDate = null;
-                    }
-                });
-
-                showToast(`${changedCount} مورد به وضعیت "${toStatus}" تغییر یافت.`);
                 saveState();
-            } else {
-                showToast('هیچ موردی برای تغییر وضعیت یافت نشد.', 'error');
+                showToast(`${changedCount} مورد به وضعیت "${toStatus}" تغییر یافت.`);
             }
         }
     });
-
-    // --- Batch Code & Tracking Logic ---
-    const populateShamsiDateSelectors = (yearEl, monthEl, dayEl) => {
-        const currentShamsiYear = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { year: 'numeric' }).format(new Date()).replace(/([۰-۹])/g, token => String.fromCharCode(token.charCodeAt(0) - 1728));
-        const year = parseInt(currentShamsiYear, 10);
-
-        yearEl.innerHTML = '<option value="">سال</option>';
-        for (let i = 0; i < 5; i++) { yearEl.innerHTML += `<option value="${year + i}">${year + i}</option>`; }
-
-        const shamsiMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
-        monthEl.innerHTML = '<option value="">ماه</option>';
-        shamsiMonths.forEach((month, index) => { monthEl.innerHTML += `<option value="${String(index + 1).padStart(2, '0')}">${month}</option>`; });
-
-        dayEl.innerHTML = '<option value="">روز</option>';
-        for (let i = 1; i <= 31; i++) { dayEl.innerHTML += `<option value="${String(i).padStart(2, '0')}">${i}</option>`; }
-    };
-
-    const generateBatchCode = (type) => {
-        if(type === 'A') {
-            const shamsiDateParts = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { month: 'numeric', day: '2-digit' }).formatToParts(new Date());
-            const month = shamsiDateParts.find(p => p.type === 'month').value.replace(/([۰-۹])/g, token => String.fromCharCode(token.charCodeAt(0) - 1728));
-            const day = shamsiDateParts.find(p => p.type === 'day').value.replace(/([۰-۹])/g, token => String.fromCharCode(token.charCodeAt(0) - 1728));
-            const monthForCounterCheck = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { month: '2-digit' }).formatToParts(new Date()).find(p=>p.type==='month').value;
-            if (appState.batchMonthA !== monthForCounterCheck) { 
-                appState.batchCounterA = 1; 
-                appState.batchMonthA = monthForCounterCheck; 
-            }
-            return `A${month}${day}${appState.batchCounterA}`;
-        } else { // type K
-            const shamsiDate = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { month: '2-digit', day: '2-digit' }).formatToParts(new Date());
-            const month = shamsiDate.find(p=>p.type==='month').value; 
-            const day = shamsiDate.find(p=>p.type==='day').value;
-             if (appState.batchMonthK !== month) { 
-                appState.batchCounterK = 1; 
-                appState.batchMonthK = month; 
-            }
-            return `K${month}${day}${appState.batchCounterK}`;
-        }
-    };
-
+    
     elements.assignBatchCodeBtn.addEventListener('click', () => {
-        const selectedIds = [...document.querySelectorAll('.report-selector:checked')].map(chk => chk.dataset.id);
-        const eligibleItems = appState.productionLog.filter(log => selectedIds.includes(log.logId) && !log.batchCode);
-
-        if (eligibleItems.length === 0) { 
-            showToast('هیچ آیتم بدون کد بچ برای اختصاص انتخاب نشده است.', 'error'); 
-            return; 
-        }
+        const selectedIds = new Set([...document.querySelectorAll('.report-selector:checked')].map(chk => chk.dataset.id));
+        if (selectedIds.size === 0) { showToast('موردی برای اختصاص کد بچ انتخاب نشده.', 'error'); return; }
         
-        const firstItem = eligibleItems[0];
-        if (!eligibleItems.every(item => item.productGroup === firstItem.productGroup && item.sourceFileId === firstItem.sourceFileId)) {
-            showToast('تمام آیتم‌ها باید از یک گروه محصول و منبع باشند.', 'error'); return;
+        const invalidItems = appState.productionLog.filter(log => selectedIds.has(log.logId) && (log.batchCode || log.status !== STATUSES.IN_PROGRESS));
+        if(invalidItems.length > 0) {
+            showToast('فقط آیتم‌های "درحال انجام" و بدون کد بچ را می‌توان انتخاب کرد.', 'error');
+            return;
         }
-        elements.assignBatchModalTitle.textContent = 'اختصاص کد بچ و زمان تحویل';
-        elements.batchConfirmBtn.textContent = 'تایید و اختصاص کد';
-        elements.batchCodeInput.value = generateBatchCode(firstItem.sourceFileId === 'manual' ? 'K' : 'A');
-        populateShamsiDateSelectors(elements.batchDeliveryYear, elements.batchDeliveryMonth, elements.batchDeliveryDay);
+
+        const currentYear = new Date().toLocaleDateString('fa-IR', {year: 'numeric'});
+        const months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+        elements.batchDeliveryYear.innerHTML = `<option>${currentYear}</option><option>${parseInt(currentYear)+1}</option>`;
+        elements.batchDeliveryMonth.innerHTML = months.map((m, i) => `<option value="${i+1}">${m}</option>`).join('');
+        elements.batchDeliveryDay.innerHTML = Array.from({length: 31}, (_, i) => `<option>${i+1}</option>`).join('');
+        
+        const currentMonthName = new Date().toLocaleDateString('fa-IR', { month: 'long' });
+        const selectedItems = appState.productionLog.filter(log => selectedIds.has(log.logId));
+        const isCommission = selectedItems.every(item => item.sourceFileId === 'manual');
+        let counter, prefix;
+        if (isCommission) {
+            prefix = "K";
+            if(appState.batchMonthK !== currentMonthName) { appState.batchMonthK = currentMonthName; appState.batchCounterK = 1; }
+            counter = appState.batchCounterK;
+        } else {
+            prefix = "A";
+            if(appState.batchMonthA !== currentMonthName) { appState.batchMonthA = currentMonthName; appState.batchCounterA = 1; }
+            counter = appState.batchCounterA;
+        }
+        elements.batchCodeInput.value = `${prefix}${currentMonthName}${String(counter).padStart(2, '0')}`;
+        
+        elements.assignBatchModalTitle.textContent = `اختصاص کد بچ به ${selectedIds.size} آیتم`;
         showModal(elements.assignBatchModal);
-        elements.batchConfirmBtn.onclick = () => {
-            const batchCode = elements.batchCodeInput.value.trim();
-            const year = elements.batchDeliveryYear.value, month = elements.batchDeliveryMonth.value, day = elements.batchDeliveryDay.value;
-            if(!batchCode || appState.productionBatches[batchCode]) { showToast('کد بچ نامعتبر یا تکراری است.', 'error'); return; }
-            if(!year || !month || !day) { showToast('لطفا تاریخ تحویل را کامل مشخص کنید.', 'error'); return; }
-            const deliveryDate = `${year}/${month}/${day}`;
-            const totalQuantity = eligibleItems.reduce((sum, item) => sum + item.quantity, 0);
-            const stageStatus = {}; Object.keys(PRODUCTION_STAGES).forEach(key => stageStatus[key] = false);
-            appState.productionBatches[batchCode] = { code: batchCode, productGroup: firstItem.productGroup, totalQuantity, sourceFileId: firstItem.sourceFileId, logIds: eligibleItems.map(i => i.logId), stages: stageStatus, creationDate: Date.now(), deliveryDate: deliveryDate, completionDate: null, manualMaterials: [] };
-            eligibleItems.forEach(item => item.batchCode = batchCode);
-            if (batchCode.startsWith('A')) appState.batchCounterA++; else appState.batchCounterK++;
-            saveState(); applyReportFilters(); hideModal(elements.assignBatchModal); showToast(`کد بچ ${batchCode} اختصاص یافت.`);
-        };
     });
 
-    const formatDuration = (start, end) => {
-        if (!start) return '-';
-        const endTime = end || Date.now();
-        let diff = Math.abs(endTime - start);
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        diff -= days * (1000 * 60 * 60 * 24);
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        let result = [];
-        if (days > 0) result.push(`${days} روز`);
-        if (hours > 0) result.push(`${hours} ساعت`);
-        return result.join(' و ') || 'کمتر از یک ساعت';
-    };
-
-    const renderTrackingView = () => {
-        const allBatches = Object.values(appState.productionBatches);
-        const groups = [...new Set(allBatches.map(b => b.productGroup))];
-        elements.trackingGroupFilter.innerHTML = '<option value="">همه</option>' + groups.sort().map(g => `<option>${g}</option>`).join('');
-        applyTrackingFilters();
-    };
-
-    const applyTrackingFilters = () => {
-        const searchTerm = elements.trackingSearchInput.value.toLowerCase();
-        const group = elements.trackingGroupFilter.value;
-        const status = elements.trackingStatusFilter.value;
-        const dateFilter = elements.trackingDateFilter.value;
-
-        // Before re-rendering, get the open details to preserve their state
-        const visibleDetailsIds = new Set(
-            [...document.querySelectorAll('#batchTrackingTableContainer .details-row.visible')]
-            .map(row => row.id.replace('details-', ''))
-        );
-
-        let filteredBatches = Object.values(appState.productionBatches);
-
-        if (searchTerm) {
-            filteredBatches = filteredBatches.filter(b => b.code.toLowerCase().includes(searchTerm));
-        }
-        if (dateFilter) {
-            filteredBatches = filteredBatches.filter(b => b.creationDate && new Date(b.creationDate).toISOString().slice(0, 10) === dateFilter);
-        }
-        if (group) {
-            filteredBatches = filteredBatches.filter(b => b.productGroup === group);
-        }
-        if (status) {
-            filteredBatches = filteredBatches.filter(b => {
-                const isCompleted = b.completionDate !== null;
-                return status === 'completed' ? isCompleted : !isCompleted;
-            });
-        }
+    elements.batchConfirmBtn.addEventListener('click', () => {
+        const batchCode = elements.batchCodeInput.value.trim();
+        const deliveryDate = `${elements.batchDeliveryYear.value}/${elements.batchDeliveryMonth.value}/${elements.batchDeliveryDay.value}`;
+        if(!batchCode || !deliveryDate) { showToast('کد بچ و تاریخ تحویل را مشخص کنید.', 'error'); return; }
+        if(appState.productionBatches[batchCode]) { showToast('این کد بچ قبلا استفاده شده.', 'error'); return; }
         
-        currentFilteredBatches = filteredBatches;
-        renderTrackingTable(currentFilteredBatches);
+        const selectedIds = new Set([...document.querySelectorAll('.report-selector:checked')].map(chk => chk.dataset.id));
+        const selectedLogs = appState.productionLog.filter(log => selectedIds.has(log.logId));
+        selectedLogs.forEach(log => { log.batchCode = batchCode; log.deliveryDate = deliveryDate; });
+        
+        const isCommission = selectedLogs.every(item => item.sourceFileId === 'manual');
+        if (isCommission) { appState.batchCounterK++; } else { appState.batchCounterA++; }
+        
+        appState.productionBatches[batchCode] = {
+            code: batchCode,
+            creationDate: new Date().toISOString(),
+            deliveryDate,
+            logIds: [...selectedIds],
+            sourceFileId: selectedLogs[0].sourceFileId,
+            sourceFileShortId: selectedLogs[0].sourceFileShortId,
+            stages: Object.keys(PRODUCTION_STAGES).reduce((acc, stage) => ({...acc, [stage]: false}), {}),
+            isCompleted: false
+        };
+        
+        saveState(); showToast(`کد بچ ${batchCode} به ${selectedIds.size} آیتم اختصاص یافت.`); hideModal(elements.assignBatchModal);
+    });
+    
+    elements.exportReportBtn.addEventListener('click', () => {
+        if (currentFilteredLog.length === 0) { showToast('داده‌ای برای خروجی وجود ندارد.', 'error'); return; }
+        const dataToExport = currentFilteredLog.map(log => ({
+            'منبع': log.sourceFileShortId, 'نام فایل': log.sourceFileId === 'manual' ? 'تولید دستی' : (appState.files[log.sourceFileId]?.name || 'نامشخص'),
+            'کد بچ': log.batchCode, 'تاریخ سفارش': log.orderDate, 'تاریخ تحویل': log.deliveryDate, 'کد طرح': log.sku,
+            'کالا': log.productName, 'گروه': log.productGroup, 'رنگ': log.color, 'سایز': log.size, 'تعداد': log.quantity, 'وضعیت': log.status
+        }));
+        exportToExcel(dataToExport, `Report-${new Date().toLocaleDateString('fa-IR').replace(/\//g, '-')}.xlsx`);
+    });
 
-        // After re-rendering, restore the visible state of details rows
-        visibleDetailsIds.forEach(batchCode => {
-            const detailsRow = document.getElementById(`details-${batchCode}`);
-            if (detailsRow) {
-                detailsRow.classList.add('visible');
+
+    // --- Printing View Logic ---
+    let currentFilteredPrintingLog = [];
+    const renderPrintingView = () => {
+        const printingLogs = appState.productionLog.filter(log => log.status === STATUSES.PRINTING);
+        const files = [...new Set(printingLogs.map(log => log.sourceFileId))];
+        const groups = [...new Set(printingLogs.map(log => log.productGroup))];
+        const colors = [...new Set(printingLogs.map(log => log.color))];
+        const sizes = [...new Set(printingLogs.map(log => log.size))];
+        
+        let fileOptions = files.map(id => {
+            const name = id === 'manual' ? 'تولید دستی' : (appState.files[id]?.name || `فایل ${id}`);
+            const shortId = id === 'manual' ? 'دستی' : (appState.files[id]?.shortId || '?');
+            return `<option value="${id}">${shortId} - ${name}</option>`;
+        }).join('');
+        
+        elements.printingFileFilter.innerHTML = '<option value="">همه فایل‌ها</option>' + fileOptions;
+        elements.printingGroupFilter.innerHTML = '<option value="">همه گروه‌ها</option>' + groups.sort().map(g => `<option>${g}</option>`).join('');
+        elements.printingColorFilter.innerHTML = '<option value="">همه رنگ‌ها</option>' + colors.sort().map(c => `<option>${c}</option>`).join('');
+        elements.printingSizeFilter.innerHTML = '<option value="">همه سایزها</option>' + sizes.sort().map(s => `<option>${s}</option>`).join('');
+        
+        applyPrintingFilters();
+    };
+
+    const applyPrintingFilters = () => {
+        const file = elements.printingFileFilter.value, group = elements.printingGroupFilter.value, color = elements.printingColorFilter.value, size = elements.printingSizeFilter.value;
+        currentFilteredPrintingLog = appState.productionLog.filter(log => 
+            log.status === STATUSES.PRINTING &&
+            (!file || log.sourceFileId === file) && 
+            (!group || log.productGroup === group) &&
+            (!color || log.color === color) &&
+            (!size || log.size === size)
+        );
+        renderPrintingTable(currentFilteredPrintingLog);
+        renderSummaryCards(currentFilteredPrintingLog, elements.printingSummaryCards, "در دست چاپ");
+    };
+
+    [elements.printingFileFilter, elements.printingGroupFilter, elements.printingColorFilter, elements.printingSizeFilter].forEach(el => el.addEventListener('change', applyPrintingFilters));
+
+    const renderPrintingTable = (logData) => {
+        let tableHTML = `<table><thead><tr>
+            <th><input type="checkbox" id="selectAllPrinting"></th><th>منبع</th><th>کد طرح</th><th>کالا</th><th>گروه</th><th>رنگ</th><th>سایز</th><th>تعداد</th>
+            </tr></thead><tbody>`;
+        logData.forEach(log => {
+            tableHTML += `<tr class="status-printing"><td><input type="checkbox" class="printing-selector" data-id="${log.logId}"></td><td>${log.sourceFileShortId}</td><td>${log.sku}</td><td>${log.productName}</td><td>${log.productGroup}</td><td>${log.color}</td><td>${log.size}</td><td><b>${log.quantity}</b></td></tr>`;
+        });
+        elements.printingTableContainer.innerHTML = tableHTML + `</tbody></table>`;
+        document.getElementById('selectAllPrinting').addEventListener('change', (e) => document.querySelectorAll('.printing-selector').forEach(chk => chk.checked = e.target.checked));
+    };
+    
+    elements.printingBulkUpdateBtn.addEventListener('click', () => {
+        const selectedIds = new Set([...document.querySelectorAll('.printing-selector:checked')].map(chk => chk.dataset.id));
+        if (selectedIds.size === 0) {
+            showToast('موردی برای تغییر وضعیت انتخاب نشده.', 'error');
+            return;
+        }
+        let changedCount = 0;
+        appState.productionLog.forEach(log => {
+            if (selectedIds.has(log.logId)) {
+                log.status = STATUSES.IN_PROGRESS; // Return to in-progress for batch assignment
+                changedCount++;
             }
         });
+        if (changedCount > 0) {
+            saveState();
+            showToast(`${changedCount} مورد به "درحال انجام" بازگردانده شد.`);
+        }
+    });
+
+    elements.exportPrintingBtn.addEventListener('click', () => {
+        if (currentFilteredPrintingLog.length === 0) { showToast('داده‌ای برای خروجی وجود ندارد.', 'error'); return; }
+        const dataToExport = currentFilteredPrintingLog.map(log => ({
+            'منبع': log.sourceFileShortId, 'کد طرح': log.sku, 'کالا': log.productName,
+            'گروه': log.productGroup, 'رنگ': log.color, 'سایز': log.size, 'تعداد': log.quantity
+        }));
+        exportToExcel(dataToExport, `Printing-List-${new Date().toLocaleDateString('fa-IR').replace(/\//g, '-')}.xlsx`);
+    });
+
+    const printContent = (el) => {
+        const clonedEl = el.cloneNode(true);
+        const table = clonedEl.querySelector('table');
+        if (table) {
+            // Remove checkboxes for printing
+            table.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+                const parent = chk.parentElement;
+                if(parent.tagName === 'TH' || parent.tagName === 'TD') parent.remove();
+            });
+             // Aggregate by Group, Color, Size
+            const aggregated = {};
+            currentFilteredPrintingLog.forEach(item => {
+                const key = `${item.productGroup}-${item.color}-${item.size}`;
+                if(!aggregated[key]) {
+                    aggregated[key] = { ...item, quantity: 0 };
+                }
+                aggregated[key].quantity += item.quantity;
+            });
+
+            let newTbody = '<tbody>';
+            Object.values(aggregated).sort((a,b) => a.productGroup.localeCompare(b.productGroup)).forEach(agg => {
+                 newTbody += `<tr>
+                    <td>${agg.sourceFileShortId}</td>
+                    <td>${agg.sku}</td>
+                    <td>${agg.productName}</td>
+                    <td>${agg.productGroup}</td>
+                    <td>${agg.color}</td>
+                    <td>${agg.size}</td>
+                    <td><b>${agg.quantity}</b></td>
+                </tr>`;
+            });
+            table.querySelector('tbody').innerHTML = newTbody;
+        }
+
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write('<html><head><title>Print</title>');
+        printWindow.document.write('<style>body{font-family: Vazirmatn, sans-serif; direction: rtl;} table{width: 100%; border-collapse: collapse;} th,td{border: 1px solid #ddd; padding: 8px; text-align: right;} th{background-color: #f2f2f2;}</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(`<h2>لیست چاپ - ${new Date().toLocaleDateString('fa-IR')}</h2>`);
+        printWindow.document.write(clonedEl.innerHTML);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.print();
     };
 
+    elements.printPrintingBtn.addEventListener('click', () => {
+        if (currentFilteredPrintingLog.length > 0) {
+            printContent(elements.printingTableContainer);
+        } else {
+            showToast('موردی برای چاپ وجود ندارد.', 'error');
+        }
+    });
+
+    // --- Tracking View Logic ---
+    const renderTrackingView = () => {
+        const batchCodes = Object.keys(appState.productionBatches);
+        const allGroups = new Set();
+        batchCodes.forEach(code => {
+            appState.productionBatches[code].logIds.forEach(id => {
+                const log = appState.productionLog.find(l => l.logId === id);
+                if (log) allGroups.add(log.productGroup);
+            });
+        });
+        elements.trackingGroupFilter.innerHTML = '<option value="">همه</option>' + [...allGroups].sort().map(g => `<option>${g}</option>`).join('');
+        applyTrackingFilters();
+    };
+    
+    const applyTrackingFilters = () => {
+        const search = elements.trackingSearchInput.value.toLowerCase();
+        const date = elements.trackingDateFilter.value;
+        const group = elements.trackingGroupFilter.value;
+        const status = elements.trackingStatusFilter.value;
+        currentFilteredBatches = Object.values(appState.productionBatches).filter(batch => {
+            const hasGroup = group ? batch.logIds.some(id => appState.productionLog.find(l=>l.logId === id)?.productGroup === group) : true;
+            const hasStatus = status ? (status === 'completed' && batch.isCompleted) || (status === 'inprogress' && !batch.isCompleted) : true;
+            return batch.code.toLowerCase().includes(search) && (!date || new Date(batch.creationDate).toISOString().slice(0, 10) === date) && hasGroup && hasStatus;
+        }).sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
+        renderBatchTrackingTable(currentFilteredBatches);
+    };
     [elements.trackingSearchInput, elements.trackingDateFilter, elements.trackingGroupFilter, elements.trackingStatusFilter].forEach(el => {
         el.addEventListener('input', applyTrackingFilters);
         el.addEventListener('change', applyTrackingFilters);
     });
 
-    const renderTrackingTable = (batches) => {
-        if(batches.length === 0) { 
-            elements.batchTrackingTableContainer.innerHTML = '<p>هیچ بچ تولیدی با این فیلترها یافت نشد.</p>'; 
-            return; 
+    const renderBatchTrackingTable = (batches) => {
+        if (batches.length === 0) {
+            elements.batchTrackingTableContainer.innerHTML = '<p>هیچ بچ تولیدی با این فیلترها یافت نشد.</p>'; return;
         }
-
-        let tableHTML = `<table><thead><tr>
-            <th>کد بچ</th><th>گروه</th><th>تعداد</th><th>تاریخ ایجاد</th><th>تاریخ تحویل</th><th>مدت زمان</th><th>وضعیت</th><th>عملیات</th>
-            </tr></thead><tbody>`;
-
+        let tableHTML = `<table><thead><tr><th>کد بچ</th><th>تاریخ ایجاد</th><th>تاریخ تحویل</th><th>تعداد کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>`;
         batches.forEach(batch => {
-            const isCompleted = batch.completionDate !== null;
-            const statusClass = isCompleted ? 'status-badge-completed' : 'status-badge-inprogress';
-            const statusText = isCompleted ? 'تکمیل شده' : 'درحال انجام';
-            const creationDate = batch.creationDate ? new Date(batch.creationDate).toLocaleDateString('fa-IR') : '-';
-            const duration = formatDuration(batch.creationDate, batch.completionDate);
-
-            tableHTML += `<tr class="batch-main-row">
-                <td><strong>${batch.code}</strong></td>
-                <td>${batch.productGroup}</td>
-                <td>${batch.totalQuantity}</td>
-                <td>${creationDate}</td>
-                <td>${batch.deliveryDate || '-'}</td>
-                <td>${duration}</td>
-                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                <td>
-                    <button class="btn-secondary btn-sm" data-details-batch="${batch.code}">جزئیات</button>
-                    <button class="btn-primary btn-sm" data-print-batch="${batch.code}">چاپ</button>
-                </td>
-            </tr>
-            <tr class="details-row" id="details-${batch.code}">
-                <td colspan="8" class="details-cell">
-                    <div class="details-content">
-                        <div>
-                            <h4>چک لیست مراحل تولید</h4>
-                            <ul class="stage-checklist">`;
-            let checklistHTML = '';
-            for(const stageKey in batch.stages){
-                checklistHTML += `<li><input type="checkbox" data-batch-code="${batch.code}" data-stage-key="${stageKey}" ${batch.stages[stageKey] ? 'checked' : ''}> <label>${PRODUCTION_STAGES[stageKey]}</label></li>`;
-            }
-            tableHTML += checklistHTML;
-            tableHTML += `</ul><div style="text-align: left; margin-top: 15px;"><button class="btn-success btn-sm" data-complete-batch="${batch.code}">تکمیل تمام مراحل</button></div></div>
-                        <div>
-                            <h4>مواد اولیه مورد نیاز (BOM)</h4>
-                            <div class="standard-materials-list-container" id="standard-materials-${batch.code}"></div>
-                            <h4 style="margin-top: 20px;">افزودن/مشاهده مواد دستی</h4>
-                            <div class="filters manual-material-form" data-batch-code="${batch.code}">
-                                <input type="text" class="manual-material-name" placeholder="نام ماده">
-                                <input type="number" class="manual-material-qty" placeholder="مقدار" min="0">
-                                <select class="manual-material-unit"><option value="">واحد</option><option>عدد</option><option>کیلوگرم</option><option>متر</option><option>بسته</option></select>
-                                <button class="btn-materials btn-sm" data-add-manual-material="${batch.code}">افزودن</button>
-                            </div>
-                            <div class="manual-materials-list-container" id="manual-materials-${batch.code}"></div>
-                        </div>
-                    </div>
-                </td>
-            </tr>`;
+            const totalQuantity = batch.logIds.reduce((sum, id) => sum + (appState.productionLog.find(l => l.logId === id)?.quantity || 0), 0);
+            const statusBadge = batch.isCompleted ? '<span class="status-badge status-badge-completed">تکمیل شده</span>' : '<span class="status-badge status-badge-inprogress">درحال انجام</span>';
+            tableHTML += `<tr><td><strong>${batch.code}</strong></td><td>${new Date(batch.creationDate).toLocaleDateString('fa-IR')}</td><td>${batch.deliveryDate}</td><td>${totalQuantity}</td><td>${statusBadge}</td><td><button class="btn-primary details-toggle-btn" data-batch-code="${batch.code}">مشاهده جزئیات</button></td></tr>`;
+            tableHTML += `<tr class="details-row" id="details-${batch.code}"><td colspan="6" class="details-cell"><div class="details-content"></div></td></tr>`;
         });
-
-        elements.batchTrackingTableContainer.innerHTML = tableHTML + `</tbody></table>`;
-        // After rendering the table, render the manual materials for visible details
-        document.querySelectorAll('.details-row.visible').forEach(row => {
-            const batchCode = row.id.split('-')[1];
-            renderManualMaterialsForBatch(batchCode);
-            renderStandardMaterialsForBatch(batchCode);
-        });
+        elements.batchTrackingTableContainer.innerHTML = tableHTML + '</tbody></table>';
     };
-    
+
     elements.batchTrackingTableContainer.addEventListener('click', (e) => {
-        const detailsButton = e.target.closest('[data-details-batch]');
-        if (detailsButton) {
-            const batchCode = detailsButton.dataset.detailsBatch;
+        if (e.target.classList.contains('details-toggle-btn')) {
+            const batchCode = e.target.dataset.batchCode;
             const detailsRow = document.getElementById(`details-${batchCode}`);
             const isVisible = detailsRow.classList.toggle('visible');
-
             if (isVisible) {
-                renderStandardMaterialsForBatch(batchCode);
-                renderManualMaterialsForBatch(batchCode);
-            }
-            return; // Stop further execution for this click
-        }
-
-        const printButton = e.target.closest('[data-print-batch]');
-        if (printButton) {
-            const oldBatchCode = printButton.dataset.printBatch;
-            const batch = appState.productionBatches[oldBatchCode];
-            if (!batch) return;
-            elements.assignBatchModalTitle.textContent = 'ویرایش کد بچ و چاپ';
-            elements.batchConfirmBtn.textContent = 'ذخیره و چاپ';
-            elements.batchCodeInput.value = oldBatchCode;
-            populateShamsiDateSelectors(elements.batchDeliveryYear, elements.batchDeliveryMonth, elements.batchDeliveryDay);
-            if(batch.deliveryDate) {
-                const [year, month, day] = batch.deliveryDate.split('/');
-                elements.batchDeliveryYear.value = year;
-                elements.batchDeliveryMonth.value = month;
-                elements.batchDeliveryDay.value = day;
-            }
-            showModal(elements.assignBatchModal);
-            elements.batchConfirmBtn.onclick = () => {
-                const newBatchCode = elements.batchCodeInput.value.trim();
-                const year = elements.batchDeliveryYear.value, month = elements.batchDeliveryMonth.value, day = elements.batchDeliveryDay.value;
-                if (!newBatchCode || (!year || !month || !day)) { 
-                    showToast('کد بچ و تاریخ تحویل نمی‌تواند خالی باشد.', 'error'); return; 
-                }
+                const batch = appState.productionBatches[batchCode];
+                const contentDiv = detailsRow.querySelector('.details-content');
+                let itemsList = '<h4>لیست آیتم‌ها:</h4><ul>';
+                const groupedItems = batch.logIds.reduce((acc, id) => {
+                    const log = appState.productionLog.find(l => l.logId === id);
+                    if (log) {
+                        const key = `${log.productName} - ${log.color} - ${log.size}`;
+                        if (!acc[key]) acc[key] = { ...log, quantity: 0 };
+                        acc[key].quantity += log.quantity;
+                    }
+                    return acc;
+                }, {});
+                Object.values(groupedItems).forEach(item => {
+                    itemsList += `<li>${item.productName} (${item.color}, ${item.size}) - تعداد: ${item.quantity}</li>`;
+                });
                 
-                const newDeliveryDate = `${year}/${month}/${day}`;
-                const batchData = appState.productionBatches[oldBatchCode];
-                batchData.deliveryDate = newDeliveryDate;
-
-                if (newBatchCode !== oldBatchCode) {
-                    if (appState.productionBatches[newBatchCode]) { showToast('این کد بچ جدید قبلا استفاده شده.', 'error'); return; }
-                    batchData.code = newBatchCode;
-                    appState.productionBatches[newBatchCode] = batchData;
-                    delete appState.productionBatches[oldBatchCode];
-                    batchData.logIds.forEach(logId => {
-                        const logItem = appState.productionLog.find(log => log.logId === logId);
-                        if (logItem) logItem.batchCode = newBatchCode;
-                    });
-                }
-                saveState(); 
-                applyTrackingFilters(); 
-                hideModal(elements.assignBatchModal);
-                const updatedBatch = appState.productionBatches[newBatchCode];
-                const itemsToPrint = appState.productionLog.filter(log => updatedBatch.logIds.includes(log.logId));
-                generatePrintableView(itemsToPrint, updatedBatch);
-            };
-            return;
-        }
-
-        const completeButton = e.target.closest('[data-complete-batch]');
-        if (completeButton) {
-            const batchCode = completeButton.dataset.completeBatch;
-            const batch = appState.productionBatches[batchCode];
-            if (batch) {
-                showConfirmationModal('تکمیل تمام مراحل', `آیا از تکمیل تمام مراحل برای کد بچ ${batchCode} اطمینان دارید؟`, () => {
-                    Object.keys(batch.stages).forEach(stageKey => batch.stages[stageKey] = true);
-                    batch.completionDate = Date.now();
-                    batch.logIds.forEach(logId => {
-                        const logItem = appState.productionLog.find(log => log.logId === logId);
-                        if (logItem) logItem.status = STATUSES.DONE;
-                    });
-                    saveState();
-                    applyTrackingFilters();
-                    showToast(`کد بچ ${batchCode} تکمیل شد.`);
+                let checklist = '<h4>مراحل تولید:</h4><ul class="stage-checklist">';
+                Object.entries(PRODUCTION_STAGES).forEach(([key, name]) => {
+                    checklist += `<li><label><input type="checkbox" class="stage-checkbox" data-batch-code="${batch.code}" data-stage="${key}" ${batch.stages[key] ? 'checked' : ''}>${name}</label></li>`;
                 });
-            }
-             return;
-        }
-
-        const addMaterialButton = e.target.closest('[data-add-manual-material]');
-        if (addMaterialButton) {
-            const batchCode = addMaterialButton.dataset.addManualMaterial;
-            const form = addMaterialButton.closest('.manual-material-form');
-            const nameInput = form.querySelector('.manual-material-name');
-            const quantityInput = form.querySelector('.manual-material-qty');
-            const unitInput = form.querySelector('.manual-material-unit');
-            const name = nameInput.value.trim();
-            const quantity = parseFloat(quantityInput.value);
-            const unit = unitInput.value.trim();
-
-            if (!name || isNaN(quantity) || quantity <= 0 || !unit) {
-                showToast('لطفا تمام فیلدهای ماده اولیه را پر کنید.', 'error');
-                return;
-            }
-            
-            const batch = appState.productionBatches[batchCode];
-            if (batch) {
-                batch.manualMaterials = batch.manualMaterials || [];
-                batch.manualMaterials.push({ name, quantity, unit });
-                saveState();
-                renderManualMaterialsForBatch(batchCode);
-                nameInput.value = '';
-                quantityInput.value = '';
-                unitInput.value = '';
-            }
-             return;
-        }
-
-        const deleteMaterialButton = e.target.closest('[data-delete-manual-material]');
-        if (deleteMaterialButton) {
-            const { batchCode, index } = deleteMaterialButton.dataset;
-            const batch = appState.productionBatches[batchCode];
-            if (batch && batch.manualMaterials[index]) {
-                showConfirmationModal('حذف ماده اولیه', `آیا از حذف '${batch.manualMaterials[index].name}' اطمینان دارید؟`, () => {
-                    batch.manualMaterials.splice(index, 1);
-                    saveState();
-                    renderManualMaterialsForBatch(batchCode);
-                });
+                contentDiv.innerHTML = itemsList + '</ul>' + checklist + '</ul>';
             }
         }
     });
 
-    const renderStandardMaterialsForBatch = (batchCode) => {
-        const container = document.getElementById(`standard-materials-${batchCode}`);
-        if (!container) return;
-
-        const batch = appState.productionBatches[batchCode];
-        if (!batch) return;
-
-        const requiredMaterials = {}; // { 'Material-Color': { name, color, required, unit } }
-        const allItemsInBatch = appState.productionLog.filter(log => log.batchCode === batchCode);
-
-        allItemsInBatch.forEach(item => {
-            const bomForGroup = appState.bom[item.productGroup];
-            if (bomForGroup) {
-                for (const materialName in bomForGroup) {
-                    const bomForMaterial = bomForGroup[materialName];
-                    const consumption = bomForMaterial[item.color] || bomForMaterial['نامشخص'];
-                    
-                    if (consumption) {
-                        const key = `${materialName}-${item.color}`;
-                        if (!requiredMaterials[key]) {
-                            const unit = appState.materials[materialName]?.[item.color]?.unit || '??';
-                            requiredMaterials[key] = { name: materialName, color: item.color, required: 0, unit };
-                        }
-                        requiredMaterials[key].required += item.quantity * consumption;
-                    }
-                }
-            }
-        });
-
-        if (Object.keys(requiredMaterials).length === 0) {
-            container.innerHTML = '<p style="font-size: 13px; color: #6c757d;">استاندارد مصرفی برای این گروه تعریف نشده.</p>';
-            return;
+    elements.batchTrackingTableContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('stage-checkbox')) {
+            const batchCode = e.target.dataset.batchCode;
+            const stage = e.target.dataset.stage;
+            const isChecked = e.target.checked;
+            appState.productionBatches[batchCode].stages[stage] = isChecked;
+            const allStagesDone = Object.values(appState.productionBatches[batchCode].stages).every(s => s);
+            appState.productionBatches[batchCode].isCompleted = allStagesDone;
+            saveState();
         }
-
-        let tableHTML = '<table><thead><tr><th>ماده</th><th>رنگ</th><th>مقدار</th><th>واحد</th></tr></thead><tbody>';
-        Object.keys(requiredMaterials).sort().forEach(key => {
-            const mat = requiredMaterials[key];
-            tableHTML += `<tr><td>${mat.name}</td><td>${mat.color}</td><td>${mat.required.toFixed(2)}</td><td>${mat.unit}</td></tr>`;
-        });
-        container.innerHTML = tableHTML + '</tbody></table>';
-    };
-
-
-    const renderManualMaterialsForBatch = (batchCode) => {
-        const container = document.getElementById(`manual-materials-${batchCode}`);
-        if (!container) return;
-        
-        const batch = appState.productionBatches[batchCode];
-        if (!batch || !batch.manualMaterials || batch.manualMaterials.length === 0) {
-            container.innerHTML = '<p style="font-size: 13px; color: #6c757d;">هنوز ماده‌ای به صورت دستی اضافه نشده.</p>';
-            return;
-        }
-
-        let listHTML = '<table><thead><tr><th>ماده</th><th>مقدار</th><th>واحد</th><th>حذف</th></tr></thead><tbody>';
-        batch.manualMaterials.forEach((mat, index) => {
-            listHTML += `<tr><td>${mat.name}</td><td>${mat.quantity}</td><td>${mat.unit}</td><td><button class="btn-danger btn-sm" data-batch-code="${batchCode}" data-delete-manual-material data-index="${index}">X</button></td></tr>`;
-        });
-        container.innerHTML = listHTML + '</tbody></table>';
-    };
-
-
-    elements.batchTrackingTableContainer.addEventListener('change', (e) => {
-        if(e.target.type === 'checkbox' && e.target.dataset.batchCode) {
-            const { batchCode, stageKey } = e.target.dataset;
-            const batch = appState.productionBatches[batchCode];
-            if (batch) {
-                batch.stages[stageKey] = e.target.checked;
-                
-                // Don't update batch status if a log item has been moved back to "Ready"
-                const allLogsInBatch = appState.productionLog.filter(l => l.batchCode === batchCode);
-                if (allLogsInBatch.length !== batch.logIds.length) {
-                    // State is inconsistent, better to save and let user see the status on next load
-                    saveState();
-                    return;
-                }
-
-                const allStagesChecked = Object.values(batch.stages).every(v => v === true);
-                if (allStagesChecked && !batch.completionDate) {
-                    batch.completionDate = Date.now();
-                    batch.logIds.forEach(logId => {
-                        const logItem = appState.productionLog.find(log => log.logId === logId);
-                        if (logItem) logItem.status = STATUSES.DONE;
-                    });
-                } else if (!allStagesChecked && batch.completionDate) {
-                    batch.completionDate = null;
-                     batch.logIds.forEach(logId => {
-                        const logItem = appState.productionLog.find(log => log.logId === logId);
-                        if (logItem && logItem.status === STATUSES.DONE) logItem.status = STATUSES.IN_PROGRESS;
-                    });
-                }
-                saveState();
-                // We re-render to update the status badge if needed, but filters handle keeping details open
-                applyTrackingFilters();
-            }
-        }
-    });
-
-    const generatePrintableView = (items, batch) => {
-        const { code: batchCode, stages, manualMaterials, productGroup: group, description } = batch;
-        const printWindow = window.open('', '_blank');
-        let totalQuantity = 0;
-
-        const aggregatedItems = {};
-        items.forEach(item => {
-            const key = `${item.productGroup}-${item.color}-${item.size}`;
-            if(!aggregatedItems[key]){
-                aggregatedItems[key] = { ...item, quantity: 0 };
-            }
-            aggregatedItems[key].quantity += item.quantity;
-        });
-
-        const tableRows = Object.values(aggregatedItems).map(item => {
-            totalQuantity += item.quantity; 
-            return `<tr><td>${item.productGroup}</td><td>${item.color}</td><td>${item.size}</td><td>${item.quantity}</td></tr>`; 
-        }).join('');
-        
-        const requiredMaterials = {}; // Same logic as renderStandardMaterialsForBatch
-        items.forEach(item => {
-            const bomForGroup = appState.bom[item.productGroup];
-            if (bomForGroup) {
-                for (const materialName in bomForGroup) {
-                    const bomForMaterial = bomForGroup[materialName];
-                    const consumption = bomForMaterial[item.color] || bomForMaterial['نامشخص'];
-                    if (consumption) {
-                        const key = `${materialName}-${item.color}`;
-                        if (!requiredMaterials[key]) {
-                            const unit = appState.materials[materialName]?.[item.color]?.unit || '??';
-                            requiredMaterials[key] = { name: materialName, color: item.color, required: 0, unit };
-                        }
-                        requiredMaterials[key].required += item.quantity * consumption;
-                    }
-                }
-            }
-        });
-        
-        let materialsHTML = '';
-        if(Object.keys(requiredMaterials).length > 0){
-            materialsHTML += '<h3>مواد اولیه استاندارد</h3><table><thead><tr><th>ماده</th><th>رنگ</th><th>مقدار</th><th>واحد</th></tr></thead><tbody>';
-            Object.keys(requiredMaterials).sort().forEach(key => {
-                const mat = requiredMaterials[key];
-                materialsHTML += `<tr><td>${mat.name}</td><td>${mat.color}</td><td>${mat.required.toFixed(2)}</td><td>${mat.unit}</td></tr>`;
-            });
-            materialsHTML += '</tbody></table>';
-        }
-
-        if (manualMaterials && manualMaterials.length > 0) {
-            materialsHTML += '<h3>سایر مواد مورد نیاز (دستی)</h3><table><thead><tr><th>ماده اولیه</th><th>مقدار مورد نیاز</th><th>واحد</th></tr></thead><tbody>';
-            manualMaterials.forEach(mat => {
-                materialsHTML += `<tr><td>${mat.name}</td><td>${mat.quantity}</td><td>${mat.unit}</td></tr>`;
-            });
-            materialsHTML += '</tbody></table>';
-        }
-
-        const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-        const boxSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>`;
-        const stageItems = Object.keys(PRODUCTION_STAGES).map(key => { const isChecked = stages[key]; return `<div class="stage-item ${isChecked ? 'completed' : ''}">${isChecked ? checkSVG : boxSVG}<span>${PRODUCTION_STAGES[key]}</span></div>`; }).join('');
-        const content = `<html><head><title>دستور تولید - ${batchCode}</title><style>:root{--success-color:#198754;--secondary-color:#6c757d}body{font-family:'Vazirmatn',sans-serif;direction:rtl;margin:0;padding:20px;background-color:#f0f2f5}.print-container{max-width:800px;margin:auto;background:white;padding:30px;border-radius:10px;box-shadow:0 0 20px rgba(0,0,0,.1)}.print-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:15px;border-bottom:2px solid #333}.header-info h1{margin:0;font-size:28px}.header-info p{margin:5px 0 0;color:#555}.batch-code-display{background:#212529;color:white;padding:15px 25px;border-radius:8px;font-size:28px;letter-spacing:2px;text-align:center;margin:25px 0}h3{text-align:right;margin-bottom:15px;color:#333}table{width:100%;border-collapse:collapse;font-size:15px}th,td{border:1px solid #dee2e6;padding:12px 15px;text-align:right}thead th{background-color:#f8f9fa;font-weight:600}tbody tr:nth-child(even){background-color:#f8f9fa}.total{font-weight:700;font-size:1.3em;margin-top:20px;text-align:left;padding:10px;background:#f8f9fa;border-radius:5px}.print-body{display:flex;flex-direction:row-reverse;gap:30px}.main-content{flex:3}.sidebar-content{flex:2;border-right:1px solid #dee2e6;padding-right:30px}.stages-grid-vertical{display:flex;flex-direction:column;gap:15px}.stage-item{display:flex;align-items:center;background:#f8f9fa;padding:12px;border-radius:8px;border-right:5px solid var(--secondary-color);transition:all .2s}.stage-item.completed{border-right-color:var(--success-color);background-color:#e6f9f0;color:var(--success-color)}.stage-item svg{flex-shrink:0;margin-left:15px}.stage-item span{font-size:16px;font-weight:500}@media print{body{background-color:#fff;padding:0}.print-container{box-shadow:none;border-radius:0;max-width:100%}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4;margin:10mm}}</style></head><body><div class="print-container"><div class="print-header"><div class="header-info"><h1>دستور کار تولید</h1><p>تاریخ چاپ: ${new Date().toLocaleDateString('fa-IR')}</p></div><img src="https://placehold.co/100x50/cccccc/212529?text=LOGO" alt="Logo" style="opacity:0.7"></div><div class="batch-code-display">${batchCode}</div><div class="print-body"><div class="sidebar-content"><h3>چک لیست مراحل</h3><div class="stages-grid-vertical">${stageItems}</div></div><div class="main-content"><h3>خلاصه سفارش</h3><table><thead><tr><th>گروه محصول</th><th>رنگ</th><th>سایز</th><th>تعداد</th></tr></thead><tbody>${tableRows}</tbody></table><div class="total">تعداد کل: ${totalQuantity}</div>${materialsHTML}${description ? `<h3>توضیحات</h3><p style="white-space: pre-wrap; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6;">${description}</p>` : ''}</div></div></div><script>window.onload=function(){window.print()}<\/script></body></html>`;
-        printWindow.document.write(content); printWindow.document.close();
-    };
-
-    elements.exportReportBtn.addEventListener('click', () => {
-        if (currentFilteredLog.length === 0) {
-            showToast('داده‌ای برای خروجی گرفتن وجود ندارد.', 'error');
-            return;
-        }
-        const dataToExport = currentFilteredLog.map(log => ({
-            'منبع': log.sourceFileShortId,
-            'نام فایل': log.sourceFileId === 'manual' ? 'تولید دستی' : (appState.files[log.sourceFileId]?.name || 'نامشخص'),
-            'کد بچ': log.batchCode || '-',
-            'تاریخ دستور': log.orderDate,
-            'کد طرح': log.sku,
-            'کالا': log.productName,
-            'گروه محصول': log.productGroup,
-            'رنگ': log.color,
-            'سایز': log.size,
-            'تعداد': log.quantity,
-            'وضعیت': log.status,
-        }));
-        exportToExcel(dataToExport, 'گزارش_جامع_تولید.xlsx');
     });
 
     elements.exportTrackingBtn.addEventListener('click', () => {
-        if (currentFilteredBatches.length === 0) {
-            showToast('داده‌ای برای خروجی گرفتن وجود ندارد.', 'error');
-            return;
-        }
-        const dataToExport = currentFilteredBatches.map(batch => {
-            const isCompleted = batch.completionDate !== null;
-            const statusText = isCompleted ? 'تکمیل شده' : 'درحال انجام';
-            const creationDate = batch.creationDate ? new Date(batch.creationDate).toLocaleDateString('fa-IR') : '-';
-            const duration = formatDuration(batch.creationDate, batch.completionDate);
-            return {
-                'کد بچ': batch.code,
-                'گروه محصول': batch.productGroup,
-                'تعداد کل': batch.totalQuantity,
-                'تاریخ ایجاد': creationDate,
-                'تاریخ تحویل': batch.deliveryDate || '-',
-                'مدت زمان': duration,
-                'وضعیت': statusText,
-            };
+        if (currentFilteredBatches.length === 0) { showToast('داده‌ای برای خروجی وجود ندارد.', 'error'); return; }
+        const dataToExport = [];
+        currentFilteredBatches.forEach(batch => {
+            const totalQuantity = batch.logIds.reduce((sum, id) => sum + (appState.productionLog.find(l => l.logId === id)?.quantity || 0), 0);
+            dataToExport.push({
+                'کد بچ': batch.code, 'تاریخ ایجاد': new Date(batch.creationDate).toLocaleDateString('fa-IR'),
+                'تاریخ تحویل': batch.deliveryDate, 'تعداد کل': totalQuantity,
+                'وضعیت': batch.isCompleted ? 'تکمیل شده' : 'درحال انجام',
+                ...Object.fromEntries(Object.entries(batch.stages).map(([key, val]) => [PRODUCTION_STAGES[key], val ? 'انجام' : 'انجام نشده']))
+            });
         });
-        exportToExcel(dataToExport, 'گزارش_رهگیری_تولید.xlsx');
+        exportToExcel(dataToExport, `Tracking-Report-${new Date().toLocaleDateString('fa-IR').replace(/\//g, '-')}.xlsx`);
     });
 
     // --- Clear Filter Buttons ---
-    elements.clearProcessingFiltersBtn.addEventListener('click', () => {
-        elements.groupFilter.value = '';
-        elements.colorFilter.value = '';
-        elements.sizeFilter.value = '';
-        elements.processingStatusFilter.value = '';
+    const clearFilters = (elementsToClear) => {
+        elementsToClear.forEach(el => {
+            if (el.tagName === 'SELECT') el.selectedIndex = 0;
+            else el.value = '';
+        });
+    };
+    elements.clearProcessingFiltersBtn.addEventListener('click', () => { 
+        clearFilters([elements.groupFilter, elements.colorFilter, elements.sizeFilter, elements.processingStatusFilter]);
         applyProcessingFilters();
     });
-
     elements.clearReportFiltersBtn.addEventListener('click', () => {
-        elements.reportFileFilter.value = '';
-        elements.reportStatusFilter.value = '';
-        elements.reportGroupFilter.value = '';
-        elements.reportBatchSearch.value = '';
-        elements.reportBatchFilter.value = '';
+        clearFilters([elements.reportFileFilter, elements.reportStatusFilter, elements.reportGroupFilter, elements.reportBatchSearch, elements.reportBatchFilter]);
         applyReportFilters();
     });
-
+    elements.clearPrintingFiltersBtn.addEventListener('click', () => {
+        clearFilters([elements.printingFileFilter, elements.printingGroupFilter, elements.printingColorFilter, elements.printingSizeFilter]);
+        applyPrintingFilters();
+    });
     elements.clearTrackingFiltersBtn.addEventListener('click', () => {
-        elements.trackingSearchInput.value = '';
-        elements.trackingDateFilter.value = '';
-        elements.trackingGroupFilter.value = '';
-        elements.trackingStatusFilter.value = '';
+        clearFilters([elements.trackingSearchInput, elements.trackingDateFilter, elements.trackingGroupFilter, elements.trackingStatusFilter]);
         applyTrackingFilters();
     });
+    
 });
 </script>
+
 </body>
 </html>
