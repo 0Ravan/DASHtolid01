@@ -31,105 +31,369 @@
     </script>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap');
+
         :root {
-            --primary-color: #0d6efd; --primary-hover: #0b5ed7; --secondary-color: #6c757d;
-            --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545;
-            --commission-color: #fd7e14; --tracking-color: #6f42c1;
-            --inventory-color: #0dcaf0;
+            --primary-glow: rgba(0, 170, 255, 0.5);
+            --primary-color: #00aaff;
+            --primary-hover: #007fbf;
+            --secondary-color: #8a94a6;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #e63946;
+            --commission-color: #fd7e14;
+            --tracking-color: #9d4edd;
+            --inventory-color: #20c997;
             --materials-color: #d63384;
-            --light-color: #f8f9fa; --dark-color: #212529; --border-color: #dee2e6;
+            
+            --bg-primary: #11131e;
+            --bg-secondary: #1c1f2e;
+            --bg-tertiary: #2a2d3e;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #f0f2f5;
+            --text-secondary: #adb5bd;
+            
             --font-main: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        body { font-family: var(--font-main); background-color: #f0f2f5; margin: 0; padding: 20px; color: var(--dark-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { max-width: 1600px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 6px 30px rgba(0,0,0,0.08); width: 100%;}
-        h1, h2, h3 { color: var(--dark-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 20px; }
-        h1 { font-size: 26px; } h2 { font-size: 22px; } h3 { font-size: 18px; margin-top: 30px; border-color: var(--secondary-color); }
-        button { font-family: var(--font-main); color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; margin: 5px; transition: all 0.2s; }
-        button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        button:disabled { background-color: #adb5bd; cursor: not-allowed; transform: none; box-shadow: none; }
-        .btn-primary { background-color: var(--primary-color); } .btn-primary:hover { background-color: var(--primary-hover); }
-        .btn-danger { background-color: var(--danger-color); } .btn-danger:hover { background-color: #c82333; }
-        .btn-success { background-color: var(--success-color); }
-        .btn-warning { background-color: var(--warning-color); color: #000; }
-        .btn-commission { background-color: var(--commission-color); }
-        .btn-tracking { background-color: var(--tracking-color); }
-        .btn-inventory { background-color: var(--inventory-color); color: #000; }
-        .btn-materials { background-color: var(--materials-color); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes backgroundPan { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) var(--bg-primary);
+        }
+        *::-webkit-scrollbar { width: 8px; }
+        *::-webkit-scrollbar-track { background: var(--bg-primary); }
+        *::-webkit-scrollbar-thumb { background-color: var(--primary-color); border-radius: 10px; border: 2px solid var(--bg-primary); }
+
+        body { 
+            font-family: var(--font-main); 
+            background: var(--bg-primary);
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #2a2d3e 100%);
+            animation: backgroundPan 30s linear infinite;
+            margin: 0; 
+            padding: 20px; 
+            color: var(--text-primary); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+
+        .container { 
+            max-width: 1600px; 
+            margin: auto; 
+            background: var(--bg-secondary); 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3); 
+            border: 1px solid var(--border-color);
+            width: 100%;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        h1, h2, h3 { 
+            color: var(--text-primary); 
+            border-bottom: 2px solid var(--primary-color); 
+            padding-bottom: 12px; 
+            margin-top: 20px; 
+        }
+        h1 { font-size: 28px; font-weight: 600; } 
+        h2 { font-size: 24px; font-weight: 500; } 
+        h3 { font-size: 20px; margin-top: 30px; border-color: var(--secondary-color); font-weight: 500;}
+
+        button { 
+            font-family: var(--font-main); 
+            color: white; 
+            padding: 12px 24px; 
+            border: 1px solid transparent; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            margin: 5px; 
+            transition: all 0.3s ease;
+            background-color: transparent;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        button:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            z-index: -1;
+            transition: transform 0.3s ease;
+            transform: scale(1);
+        }
+        button:hover:before {
+            transform: scale(1.05);
+        }
+        button:hover {
+            box-shadow: 0 0 15px var(--primary-glow);
+            border-color: var(--primary-color);
+            transform: translateY(-3px);
+        }
+        button:disabled {
+            background-color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.5;
+            border-color: transparent;
+        }
+
+        .btn-primary { border-color: var(--primary-color); color: var(--primary-color); }
+        .btn-primary:hover { background-color: var(--primary-color); color: white; box-shadow: 0 0 20px var(--primary-glow); }
+        .btn-danger { border-color: var(--danger-color); color: var(--danger-color); }
+        .btn-danger:hover { background-color: var(--danger-color); color: white; box-shadow: 0 0 20px rgba(230, 57, 70, 0.5); }
+        .btn-success { border-color: var(--success-color); color: var(--success-color); }
+        .btn-success:hover { background-color: var(--success-color); color: white; }
+        .btn-warning { border-color: var(--warning-color); color: var(--warning-color); }
+        .btn-warning:hover { background-color: var(--warning-color); color: var(--bg-primary); }
+        .btn-commission { border-color: var(--commission-color); color: var(--commission-color); }
+        .btn-commission:hover { background-color: var(--commission-color); color: white; }
+        .btn-tracking { border-color: var(--tracking-color); color: var(--tracking-color); }
+        .btn-tracking:hover { background-color: var(--tracking-color); color: white; }
+        .btn-inventory { border-color: var(--inventory-color); color: var(--inventory-color); }
+        .btn-inventory:hover { background-color: var(--inventory-color); color: var(--bg-primary); }
+        .btn-materials { border-color: var(--materials-color); color: var(--materials-color); }
+        .btn-materials:hover { background-color: var(--materials-color); color: white; }
+        .btn-secondary { border-color: var(--secondary-color); color: var(--secondary-color); }
+        .btn-secondary:hover { background-color: var(--secondary-color); color: white; }
+
         .hidden { display: none; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-        th, td { padding: 12px; text-align: right; border: 1px solid var(--border-color); vertical-align: middle; }
-        th { background-color: var(--dark-color); color: white; position: sticky; top: 0; z-index: 1;}
-        tr:nth-child(even) { background-color: var(--light-color); }
-        .page-view { margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px; }
-        .file-list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; }
-        .filters, .bulk-update { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; padding: 15px; background: var(--light-color); border-radius: 8px; align-items: center; }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+            font-size: 14px; 
+        }
+        th, td { 
+            padding: 14px; 
+            text-align: right; 
+            border-bottom: 1px solid var(--border-color); 
+            vertical-align: middle; 
+            transition: background-color 0.3s ease;
+        }
+        th { 
+            background-color: rgba(0, 170, 255, 0.1);
+            color: var(--primary-color); 
+            font-weight: 600;
+            position: sticky; 
+            top: 0; 
+            z-index: 10;
+        }
+        tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
+
+        .page-view { 
+            margin-top: 30px; 
+            border-top: 1px solid var(--border-color); 
+            padding-top: 20px; 
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .file-list-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 15px; 
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color); 
+            border-radius: 10px; 
+            margin-bottom: 12px; 
+            transition: all 0.3s ease;
+        }
+        .file-list-item:hover {
+            transform: translateX(-5px);
+            border-color: var(--primary-color);
+        }
+
+        .filters, .bulk-update { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            margin-bottom: 20px; 
+            padding: 20px; 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 10px; 
+            align-items: center; 
+        }
         .filters label { font-size: 15px; display: flex; align-items: center; gap: 8px; }
-        .filters select, .filters input, .bulk-update select, .bulk-update button, #manualForm input, #manualForm select, textarea { padding: 10px; font-size: 15px; border: 1px solid var(--border-color); border-radius: 5px; font-family: var(--font-main); }
-        .status-ready { background-color: #e9ecef; }
-        .status-inprogress { background-color: #fff3cd; }
-        .status-printing { background-color: #cff4fc; }
-        .status-done { background-color: #d1e7dd; }
-        .status-cancelled { background-color: #f8d7da; text-decoration: line-through; color: #6c757d; }
-        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
-        .card { background: var(--light-color); padding: 20px; border-radius: 8px; text-align: center; border-left: 5px solid; }
-        .card h4 { margin: 0 0 10px; font-size: 16px; color: var(--secondary-color); }
-        .card .count { font-size: 32px; font-weight: bold; }
-        .card-total { border-color: var(--primary-color); }
-        .card-ready { border-color: var(--secondary-color); }
-        .card-inprogress { border-color: var(--warning-color); }
-        .card-done { border-color: var(--success-color); }
-        .nav-buttons { margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;}
+        .filters select, .filters input, .bulk-update select, .bulk-update button, #manualForm input, #manualForm select, textarea { 
+            padding: 12px; 
+            font-size: 15px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; 
+            font-family: var(--font-main); 
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        .filters select:focus, .filters input:focus, .bulk-update select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .status-ready { background-color: rgba(108, 117, 125, 0.1); }
+        .status-inprogress { background-color: rgba(255, 193, 7, 0.1); }
+        .status-printing { background-color: rgba(13, 202, 240, 0.1); }
+        .status-done { background-color: rgba(25, 135, 84, 0.1); }
+        .status-cancelled { background-color: rgba(220, 53, 69, 0.1); text-decoration: line-through; color: var(--text-secondary); }
+
+        .summary-cards { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 20px; 
+            margin-top: 20px; 
+        }
+        .card { 
+            background: var(--bg-tertiary); 
+            padding: 25px; 
+            border-radius: 12px; 
+            text-align: center; 
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .card:before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0; width: 100%; height: 4px;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .card h4 { margin: 0 0 15px; font-size: 16px; color: var(--text-secondary); font-weight: 500;}
+        .card .count { font-size: 36px; font-weight: 700; color: var(--text-primary); }
+        
+        .card-total:before { background: var(--primary-color); }
+        .card-ready:before { background: var(--secondary-color); }
+        .card-inprogress:before { background: var(--warning-color); }
+        .card-done:before { background: var(--success-color); }
+
+        .nav-buttons { 
+            margin-bottom: 25px; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
         #auth-container { max-width: 400px; margin: auto; }
         #app-container { display: none; }
-        .auth-form { display: flex; flex-direction: column; gap: 15px; }
-        .auth-form input { padding: 12px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 6px;}
-        .auth-toggle { text-align: center; margin-top: 15px; color: var(--primary-color); cursor: pointer; }
-        #user-info { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--secondary-color); }
-        #logoutBtn { font-size: 12px; padding: 5px 10px; background-color: var(--danger-color); }
+        .auth-form { display: flex; flex-direction: column; gap: 20px; }
+        .auth-form input { padding: 14px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .auth-toggle { text-align: center; margin-top: 20px; color: var(--primary-color); cursor: pointer; font-weight: 500;}
+        #user-info { display: flex; align-items: center; gap: 15px; font-size: 14px; color: var(--text-secondary); }
+        #logoutBtn { font-size: 13px; padding: 6px 12px; border-color: var(--danger-color); color: var(--danger-color); }
+        #logoutBtn:hover { background-color: var(--danger-color); color: white; }
 
         /* Modal Styles */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.7); 
+            backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center; 
+            z-index: 2000; opacity: 0; 
+            transition: opacity 0.3s; pointer-events: none; 
+        }
         .modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
         .modal-content {
-            background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
-            width: 90%; max-width: 600px; transform: scale(0.9); transition: transform 0.3s;
+            background: var(--bg-secondary); 
+            padding: 35px; border-radius: 16px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            border: 1px solid var(--border-color);
+            width: 90%; max-width: 650px; 
+            transform: scale(0.95); transition: transform 0.3s;
             display: flex; flex-direction: column; max-height: 90vh;
         }
-        #editQuantityModal .modal-content {
-             max-width: 900px; width: 90vw;
-        }
+        #editQuantityModal .modal-content { max-width: 900px; width: 90vw; }
         .modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
         .modal-content h3, .modal-content p, #inventoryWarningContainer, .modal-buttons, .modal-form-group { flex-shrink: 0; }
-        .modal-content h3 { margin-top: 0; border-color: var(--danger-color); }
-        .modal-content p { margin: 15px 0; line-height: 1.6; }
-        .modal-buttons { text-align: left; margin-top: 25px; }
-        .btn-secondary { background-color: var(--secondary-color); }
-        .modal-form-group { margin: 15px 0; }
-        .modal-form-group label { display: block; margin-bottom: 8px; font-weight: 600; }
-        .modal-form-group input, .modal-form-group select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); box-sizing: border-box; font-family: var(--font-main); font-size: 15px; }
+        .modal-content h3 { margin-top: 0; border-color: var(--primary-color); }
+        .modal-content p { margin: 15px 0; line-height: 1.7; color: var(--text-secondary); }
+        .modal-buttons { text-align: left; margin-top: 30px; }
+        .modal-form-group { margin: 20px 0; }
+        .modal-form-group label { display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary); }
+        .modal-form-group input, .modal-form-group select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box; font-family: var(--font-main); font-size: 15px; background: var(--bg-tertiary); color: var(--text-primary); }
         #manualForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-        #editQuantityList { flex-grow: 1; overflow-y: auto; margin-top: 20px; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background-color: #fff; }
+        #editQuantityList { 
+            flex-grow: 1; overflow-y: auto; margin-top: 20px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; padding: 10px; 
+            background-color: var(--bg-primary); 
+        }
         
         /* Tracking & Report View Styles */
-        .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; display: inline-block; }
+        .status-badge { padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: 600; color: white; display: inline-block; }
         .status-badge-completed { background-color: var(--success-color); }
-        .status-badge-inprogress { background-color: var(--warning-color); color: #000; }
+        .status-badge-inprogress { background-color: var(--warning-color); color: var(--bg-primary); }
         .details-row { display: none; }
         .details-row.visible { display: table-row; }
         .details-cell { padding: 0 !important; }
-        .details-content { background-color: #f8f9fa; padding: 20px; border: 2px solid var(--tracking-color); }
+        .details-content { 
+            background-color: var(--bg-primary); 
+            padding: 25px; 
+            border: 2px solid var(--tracking-color); 
+            animation: fadeIn 0.3s;
+        }
         .details-content h4 { grid-column: 1 / -1; margin-top:0; color: var(--tracking-color); border-bottom: 1px solid var(--tracking-color); padding-bottom: 10px; }
         .stage-checklist { list-style: none; padding: 0; margin: 0; }
-        .stage-checklist li { display: flex; align-items: center; font-size: 16px; margin-bottom: 10px; }
-        .stage-checklist input[type="checkbox"] { width: 20px; height: 20px; margin-left: 12px; cursor: pointer; }
-        #batchTrackingTableContainer table td button { padding: 5px 10px; font-size: 13px; }
-        .has-batch-code { background-color: #f3e5f5 !important; }
+        .stage-checklist li { display: flex; align-items: center; font-size: 16px; margin-bottom: 12px; }
+        .stage-checklist input[type="checkbox"] { 
+            width: 22px; height: 22px; margin-left: 15px; cursor: pointer; 
+            appearance: none; background: var(--bg-tertiary); border: 2px solid var(--border-color); border-radius: 5px;
+            transition: all 0.2s;
+        }
+        .stage-checklist input[type="checkbox"]:checked {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        #batchTrackingTableContainer table td button { padding: 6px 12px; font-size: 13px; }
+        .has-batch-code { background-color: rgba(157, 78, 221, 0.1) !important; }
         
-        #inventoryWarningContainer { background: #fff3cd; border: 1px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px; max-height: 150px; overflow-y: auto; }
-        #inventoryWarningContainer p { margin: 5px 0; font-weight: 500; }
+        #inventoryWarningContainer { 
+            background: rgba(255, 193, 7, 0.1); 
+            border: 1px solid var(--warning-color); 
+            border-radius: 10px; padding: 15px; margin-bottom: 20px; 
+            max-height: 150px; overflow-y: auto; 
+        }
+        #inventoryWarningContainer p { margin: 8px 0; font-weight: 500; }
         .low-inventory { color: var(--danger-color); font-weight: bold; }
-        .upload-area { border: 2px dashed; padding: 20px; border-radius: 8px; text-align: center; margin-top: 20px; background-color: #f8f9fa; }
-        #dataManagement { border-top: 2px solid var(--primary-color); margin-top: 20px; padding-top: 15px; display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+        
+        .upload-area { 
+            border: 2px dashed var(--border-color); 
+            padding: 30px; border-radius: 12px; 
+            text-align: center; margin-top: 20px; 
+            background-color: rgba(0,0,0,0.2); 
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background-color: var(--bg-tertiary);
+        }
+        .upload-area label {
+             border-style: solid;
+             background-color: var(--bg-tertiary);
+        }
+
+        #dataManagement { 
+            border-top: 1px solid var(--border-color); 
+            margin-top: 20px; padding-top: 20px; 
+            display: flex; gap: 10px; justify-content: flex-end; align-items: center; 
+        }
 
     </style>
 </head>
@@ -141,12 +405,12 @@
             <div id="login-form" class="auth-form">
                 <input type="email" id="loginEmail" placeholder="ایمیل" required>
                 <input type="password" id="loginPassword" placeholder="رمز عبور" required>
-                <button id="loginBtn" class="btn-primary">ورود</button>
+                <button id="loginBtn" class="btn-primary" style="width: 100%; margin-top: 10px; background-color: var(--primary-color); color: white;">ورود</button>
             </div>
             <div id="signup-form" class="auth-form hidden">
                  <input type="email" id="signupEmail" placeholder="ایمیل" required>
                 <input type="password" id="signupPassword" placeholder="رمز عبور" required>
-                <button id="signupBtn" class="btn-primary">ثبت نام</button>
+                <button id="signupBtn" class="btn-primary" style="width: 100%; margin-top: 10px; background-color: var(--primary-color); color: white;">ثبت نام</button>
             </div>
              <p id="auth-toggle" class="auth-toggle">حساب کاربری ندارید؟ ثبت نام کنید</p>
         </div>
@@ -169,8 +433,8 @@
         <div class="nav-buttons">
             <button id="showDashboardBtn" class="btn-primary">مدیریت فایل‌ها</button>
             <button id="showManualProductionBtn" class="btn-commission">تولید کارمزدی</button>
-            <button id="showReportBtn" class="btn-primary" style="background-color: var(--success-color);">گزارش جامع</button>
-            <button id="showPrintingBtn" class="btn-primary" style="background-color: var(--inventory-color); color: #000;">در دست چاپ</button>
+            <button id="showReportBtn" class="btn-success">گزارش جامع</button>
+            <button id="showPrintingBtn" class="btn-inventory">در دست چاپ</button>
             <button id="showTrackingBtn" class="btn-tracking">رهگیری تولید</button>
             <button id="showInventoryBtn" class="btn-inventory">موجودی‌ها</button>
             <button id="showMaterialsBtn" class="btn-materials">استاندارد مواد</button>
@@ -190,7 +454,7 @@
              <div class="upload-area" style="border-color: var(--materials-color); margin-bottom: 30px;">
                 <input type="file" id="materialsExcelFile" class="hidden" accept=".xls,.xlsx,.csv">
                 <label for="materialsExcelFile" class="btn-materials">بارگذاری/افزودن اکسل مواد اولیه</label>
-                 <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">فایل باید شامل ستون‌های 'نام مواد اولیه'، 'رنگ'، 'مقدار' و 'واحد سنجش' باشد. مقادیر به موجودی فعلی اضافه می‌شوند.</p>
+                 <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">فایل باید شامل ستون‌های 'نام مواد اولیه'، 'رنگ'، 'مقدار' و 'واحد سنجش' باشد. مقادیر به موجودی فعلی اضافه می‌شوند.</p>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
                 <div>
@@ -233,7 +497,7 @@
             <div class="upload-area" style="border-color: var(--inventory-color);">
                  <input type="file" id="inventoryExcelFile" class="hidden" accept=".xls,.xlsx,.csv">
                 <label for="inventoryExcelFile" class="btn-inventory">بارگذاری/افزودن فایل موجودی</label>
-                <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">فایل اکسل باید شامل ستون‌های 'نام آیتم' و 'تعداد (- استرداد)' باشد. مقادیر به موجودی فعلی اضافه/کسر می‌شوند.</p>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">فایل اکسل باید شامل ستون‌های 'نام آیتم' و 'تعداد (- استرداد)' باشد. مقادیر به موجودی فعلی اضافه/کسر می‌شوند.</p>
             </div>
             <div id="inventoryTableContainer" style="margin-top: 20px;"></div>
         </div>
@@ -268,7 +532,7 @@
         </div>
 
         <div id="processingView" class="page-view hidden">
-            <button id="backToDashboard" class="btn-primary" style="background-color: var(--secondary-color);">بازگشت به لیست فایل‌ها</button>
+            <button id="backToDashboard" class="btn-secondary">بازگشت به لیست فایل‌ها</button>
             <h2 id="processingFileName"></h2>
             <h3>فیلتر و صدور دستور تولید</h3>
             <div class="filters">
@@ -316,7 +580,7 @@
                 <span>عملیات گروهی (برای موارد انتخابی):</span>
                 <label>تغییر به: <select id="reportToStatus"><option value="آماده تولید">بازگشت به آماده تولید</option><option value="درحال انجام">درحال انجام</option><option value="در دست چاپ">در دست چاپ</option><option value="انجام شده">انجام شده</option><option value="ابطال">ابطال</option></select></label>
                 <button id="reportBulkUpdateBtn" class="btn-warning">اعمال تغییر</button>
-                <button id="sendToPrintingBtn" class="btn-primary" style="background-color: var(--inventory-color); color: #000;">ارسال برای چاپ</button>
+                <button id="sendToPrintingBtn" class="btn-inventory">ارسال برای چاپ</button>
                 <button id="assignBatchCodeBtn" class="btn-primary">اختصاص کد بچ</button>
                 <button id="exportReportBtn" class="btn-success">خروجی اکسل</button>
             </div>
